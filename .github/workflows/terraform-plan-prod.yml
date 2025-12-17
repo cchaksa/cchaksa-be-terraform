@@ -1,0 +1,54 @@
+name: Terraform Plan (prod)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - prod
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Setup AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.PROD_AWS_ACCESS_KEY_ID }} --profile prod-cchaksa
+          aws configure set aws_secret_access_key ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }} --profile prod-cchaksa
+          aws configure set region ap-northeast-2 --profile prod-cchaksa
+
+      - name: Create prod tfvars
+        run: |
+          cat > prod.tfvars << 'EOF'
+          environment    = "prod"
+          enable_develop = true
+          aws_profile    = "prod-cchaksa"
+          aws_region     = "ap-northeast-2"
+          EOF
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="backend/backend-prod.hcl" \
+            -reconfigure
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var-file="prod.tfvars" \
+            -no-color
