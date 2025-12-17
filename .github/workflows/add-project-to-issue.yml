@@ -4,10 +4,6 @@ on:
   issues:
     types: [opened, reopened]
 
-permissions:
-  issues: read
-  projects: write
-
 jobs:
   add-to-project:
     runs-on: ubuntu-latest
