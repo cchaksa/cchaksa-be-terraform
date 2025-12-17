@@ -5,4 +5,4 @@ region         = "ap-northeast-2"
 use_lockfile = true
 encrypt        = true
 
-profile        = "prod-cchaksa"   # aws configure --profile sandbox 에서 설정한 이름
+profile        = "prod-cchaksa"   # aws configure --profile prod 에서 설정한 이름
