@@ -1,17 +1,43 @@
 resource "aws_security_group" "app" {
   name        = "${var.environment}-app-sg"
-  description = "EC2 application security group"
+  description = "EC2 / ASG application security group)"
   vpc_id      = aws_vpc.main.id
 
-  # 임시: 내부 통신용 (나중에 ALB SG로 제한)
+  ############################
+  # Inbound
+  ############################
+
+  # SSH
   ingress {
-    description = "HTTP from VPC"
-    from_port   = 8080
-    to_port     = 8080
+    description = "SSH (temporary)"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTP - 내부 통신만
+  ingress {
+    description = "App HTTP from VPC"
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
+  # Redis - 로컬 캐시로 변경하면서 제거 예정
+  ingress {
+    description = "Redis from anywhere"
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+
+  ############################
+  # Outbound
+  ############################
+
+  # 외부 크롤링/통신 전체 허용
   egress {
     from_port   = 0
     to_port     = 0
