@@ -32,6 +32,7 @@ resource "aws_security_group" "app" {
     to_port     = 6379
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
 
   ############################
   # Outbound
