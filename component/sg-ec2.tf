@@ -18,11 +18,11 @@ resource "aws_security_group" "app" {
 
   # HTTP - 내부 통신만
   ingress {
-    description = "App HTTP from VPC"
+    description = "HTTP from ALB"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
+    security_groups = [aws_security_group.alb.id]
   }
 
   # Redis - 로컬 캐시로 변경하면서 제거 예정
