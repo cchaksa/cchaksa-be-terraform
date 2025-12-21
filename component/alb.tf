@@ -8,7 +8,8 @@ resource "aws_lb" "app" {
   ]
 
   subnets = [
-    aws_subnet.public_a.id
+    aws_subnet.public_a.id,
+    aws_subnet.public_c.id
   ]
 
   tags = {
