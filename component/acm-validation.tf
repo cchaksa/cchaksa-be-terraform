@@ -1,6 +1,9 @@
-data "aws_route53_zone" "main" {
-  name         = "cchaksa.com"
-  private_zone = false
+resource "aws_route53_zone" "main" {
+  name = "cchaksa.com"
+
+  tags = {
+    Environment = var.environment
+  }
 }
 
 resource "aws_route53_record" "acm_validation" {
@@ -13,7 +16,7 @@ resource "aws_route53_record" "acm_validation" {
     }
   }
 
-  zone_id = data.aws_route53_zone.main.zone_id
+  zone_id = aws_route53_zone.main.zone_id
   name    = each.value.name
   type    = each.value.type
   records = [each.value.value]
