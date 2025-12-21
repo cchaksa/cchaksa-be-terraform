@@ -2,7 +2,7 @@ resource "aws_autoscaling_group" "app" {
   name                = "${var.environment}-app-asg"
   min_size            = 1
   desired_capacity    = 1
-  max_size            = 3
+  max_size            = 2
 
   vpc_zone_identifier = [
     aws_subnet.public_a.id
@@ -13,7 +13,11 @@ resource "aws_autoscaling_group" "app" {
     version = "$Latest"
   }
 
-  health_check_type         = "EC2"
+  target_group_arns = [
+    aws_lb_target_group.app.arn
+  ]
+
+  health_check_type         = "ELB"
   health_check_grace_period = 60
 
   tag {
