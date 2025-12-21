@@ -1,11 +1,3 @@
-resource "aws_route53_zone" "main" {
-  name = "cchaksa.com"
-
-  tags = {
-    Environment = var.environment
-  }
-}
-
 resource "aws_route53_record" "acm_validation" {
   for_each = {
     for dvo in aws_acm_certificate.app.domain_validation_options :
