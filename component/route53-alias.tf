@@ -1,6 +1,6 @@
-resource "aws_route53_record" "api" {
-  zone_id = aws_route53_zone.main.zone_id
-  name    = "dev.api"
+resource "aws_route53_record" "dev_api_alias" {
+  zone_id = aws_route53_zone.dev_api.zone_id
+  name    = "dev.api.cchaksa.com"
   type    = "A"
 
   alias {
