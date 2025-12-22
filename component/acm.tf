@@ -8,6 +8,6 @@ resource "aws_acm_certificate" "app" {
 
   tags = {
     Name        = "dev-api-cert"
-    Environment = develop
+    Environment = "develop"
   }
 }
