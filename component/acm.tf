@@ -1,5 +1,5 @@
 resource "aws_acm_certificate" "app" {
-  domain_name       = "dev.api.cchaksa.com"
+  domain_name       = "*.cchaksa.com"
   validation_method = "DNS"
 
   lifecycle {
@@ -7,7 +7,7 @@ resource "aws_acm_certificate" "app" {
   }
 
   tags = {
-    Name        = "${var.environment}-dev-api-cert"
+    Name        = "${var.environment}-api-cert"
     Environment = var.environment
   }
 }
