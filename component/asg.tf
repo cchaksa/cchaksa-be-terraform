@@ -18,7 +18,7 @@ resource "aws_autoscaling_group" "app" {
   ]
 
   health_check_type         = "ELB"
-  health_check_grace_period = 60
+  health_check_grace_period = 180
 
   tag {
     key                 = "Name"
