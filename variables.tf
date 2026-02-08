@@ -25,6 +25,12 @@ variable "enable_develop" {
   default     = true
 }
 
+variable "app_ami_id" {
+  description = "고정할 AMI ID. null이면 최신 AMI를 사용."
+  type        = string
+  default     = null
+}
+
 # # region Discord Bot 관련 변수
 # variable "discord_public_key" {
 #   description = "Discord Bot Public Key"
