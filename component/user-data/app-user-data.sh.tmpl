@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ASG_NAME="${asg_name}"
+LIFECYCLE_HOOK_NAME="${lifecycle_hook_name}"
+AWS_REGION="${aws_region}"
+
+# 애플리케이션이 완전히 기동된 이후에만 lifecycle 완료
+# 필요시 아래 대기 조건을 실제 서비스 기동 완료 조건으로 조정
+HEALTH_URL="http://127.0.0.1/health"
+MAX_WAIT_SECONDS=600
+SLEEP_SECONDS=5
+
+if ! command -v curl >/dev/null 2>&1; then
+  if command -v yum >/dev/null 2>&1; then
+    yum -y install curl
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y
+    apt-get install -y curl
+  fi
+fi
+
+if ! command -v aws >/dev/null 2>&1; then
+  if command -v yum >/dev/null 2>&1; then
+    yum -y install awscli
+  elif command -v apt-get >/dev/null 2>&1; then
+    apt-get update -y
+    apt-get install -y awscli
+  fi
+fi
+
+WAITED=0
+until curl -fsS "$HEALTH_URL" >/dev/null 2>&1; do
+  if [ "$WAITED" -ge "$MAX_WAIT_SECONDS" ]; then
+    break
+  fi
+  sleep "$SLEEP_SECONDS"
+  WAITED=$((WAITED + SLEEP_SECONDS))
+done
+
+aws autoscaling complete-lifecycle-action \
+  --region "$AWS_REGION" \
+  --auto-scaling-group-name "$ASG_NAME" \
+  --lifecycle-hook-name "$LIFECYCLE_HOOK_NAME" \
+  --lifecycle-action-result CONTINUE
