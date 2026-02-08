@@ -1,5 +1,5 @@
 resource "aws_autoscaling_group" "app" {
-  name                = "${var.environment}-app-asg"
+  name                = var.app_asg_name
   min_size            = 1
   desired_capacity    = 1
   max_size            = 2
@@ -19,6 +19,8 @@ resource "aws_autoscaling_group" "app" {
 
   health_check_type         = "ELB"
   health_check_grace_period = 180
+
+  # 기대 효과: ELB system health transient failure로 인한 SetInstanceHealth(Unhealthy) 이벤트 차단
 
   tag {
     key                 = "Name"
