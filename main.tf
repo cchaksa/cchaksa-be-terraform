@@ -20,6 +20,9 @@ module "component" {
   environment = var.environment
   enable      = var.environment == "develop" ? var.enable_develop : true
   app_ami_id  = var.app_ami_id
+  aws_region  = var.aws_region
+  app_asg_name           = "${var.environment}-app-asg"
+  app_lifecycle_hook_name = "${var.environment}-app-launch-hook"
 }
 
 # module "discord-bot" {
