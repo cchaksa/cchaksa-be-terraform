@@ -5,3 +5,9 @@ variable "enable" {
   type        = bool
   default     = true
 }
+
+variable "app_ami_id" {
+  description = "고정할 AMI ID. null이면 최신 AMI를 사용."
+  type        = string
+  default     = null
+}

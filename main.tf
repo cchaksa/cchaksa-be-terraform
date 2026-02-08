@@ -19,6 +19,7 @@ module "component" {
   source      = "./component"
   environment = var.environment
   enable      = var.environment == "develop" ? var.enable_develop : true
+  app_ami_id  = var.app_ami_id
 }
 
 # module "discord-bot" {
