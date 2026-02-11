@@ -6,42 +6,29 @@ exec > >(tee -a /var/log/user-data.log) 2>&1
 ASG_NAME="${asg_name}"
 LIFECYCLE_HOOK_NAME="${lifecycle_hook_name}"
 AWS_REGION="${aws_region}"
+APP_PORT="${app_port}"
+HEALTH_PATH="${health_path}"
+SERVICE_NAME="${service_name}"
 
-# 애플리케이션이 완전히 기동된 이후에만 lifecycle 완료
-# 필요시 아래 대기 조건을 실제 서비스 기동 완료 조건으로 조정
-HEALTH_URL="http://127.0.0.1/health"
-MAX_WAIT_SECONDS=600
+APP_DIR="/app"
+APP_JAR_PATH="$APP_DIR/app.jar"
+HEALTH_URL="http://127.0.0.1:$APP_PORT$HEALTH_PATH"
+NOHUP_LOG="/var/log/${service_name}.log"
+LIFECYCLE_RESULT="ABANDON"
+MAX_WAIT_SECONDS=300
 SLEEP_SECONDS=5
 
-if ! command -v curl >/dev/null 2>&1; then
-  if command -v yum >/dev/null 2>&1; then
-    yum -y install curl
-  elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y
-    apt-get install -y curl
-  fi
-fi
-
-if ! command -v aws >/dev/null 2>&1; then
-  if command -v yum >/dev/null 2>&1; then
-    yum -y install awscli
-  elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y
-    apt-get install -y awscli
-  fi
-fi
-
-if [ ! -x /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl ]; then
-  if command -v yum >/dev/null 2>&1; then
-    yum -y install amazon-cloudwatch-agent || true
-  elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update -y
-    apt-get install -y amazon-cloudwatch-agent || true
-  fi
+if command -v dnf >/dev/null 2>&1; then
+  dnf -y install curl awscli java-17-amazon-corretto-headless amazon-cloudwatch-agent
+elif command -v yum >/dev/null 2>&1; then
+  yum -y install curl awscli java-17-amazon-corretto-headless amazon-cloudwatch-agent
+elif command -v apt-get >/dev/null 2>&1; then
+  apt-get update -y
+  apt-get install -y curl awscli openjdk-17-jre-headless amazon-cloudwatch-agent
 fi
 
 if [ -x /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl ]; then
-  cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
+  cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<CWAGENT
 {
   "agent": {
     "region": "${aws_region}"
@@ -73,14 +60,19 @@ if [ -x /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl ]; then
             "log_group_name": "/${environment}/ec2/system",
             "log_stream_name": "{instance_id}/syslog",
             "retention_in_days": 30
+          },
+          {
+            "file_path": "$NOHUP_LOG",
+            "log_group_name": "/${environment}/ec2/app",
+            "log_stream_name": "{instance_id}/app",
+            "retention_in_days": 30
           }
         ]
       }
     }
   }
 }
-EOF
-
+CWAGENT
   /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
     -a fetch-config \
     -m ec2 \
@@ -88,17 +80,56 @@ EOF
     -s || true
 fi
 
+if [ ! -f "$APP_JAR_PATH" ]; then
+  echo "missing app jar: $APP_JAR_PATH"
+  exit 1
+fi
+
+mkdir -p /usr/local/bin
+cat >/usr/local/bin/start-${service_name}.sh <<STARTSCRIPT
+#!/usr/bin/env bash
+set -euo pipefail
+cd $APP_DIR
+pkill -f 'java .*app.jar' || true
+nohup java -Xms1024m -Xmx1024m -XX:+UseG1GC -XX:MaxMetaspaceSize=256m -jar app.jar --spring.profiles.active=dev >> $NOHUP_LOG 2>&1 &
+STARTSCRIPT
+chmod 755 /usr/local/bin/start-${service_name}.sh
+
+cat >/etc/systemd/system/${service_name}.service <<SERVICE
+[Unit]
+Description=${service_name} nohup launcher
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/start-${service_name}.sh
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+systemctl daemon-reload
+systemctl enable ${service_name}.service
+systemctl restart ${service_name}.service
+
 WAITED=0
 until curl -fsS "$HEALTH_URL" >/dev/null 2>&1; do
   if [ "$WAITED" -ge "$MAX_WAIT_SECONDS" ]; then
+    journalctl -u ${service_name}.service -n 200 --no-pager || true
+    tail -n 200 "$NOHUP_LOG" || true
     break
   fi
   sleep "$SLEEP_SECONDS"
   WAITED=$((WAITED + SLEEP_SECONDS))
 done
 
+if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
+  LIFECYCLE_RESULT="CONTINUE"
+fi
+
 aws autoscaling complete-lifecycle-action \
   --region "$AWS_REGION" \
   --auto-scaling-group-name "$ASG_NAME" \
   --lifecycle-hook-name "$LIFECYCLE_HOOK_NAME" \
-  --lifecycle-action-result CONTINUE
+  --lifecycle-action-result "$LIFECYCLE_RESULT"

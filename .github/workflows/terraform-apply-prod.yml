@@ -6,17 +6,11 @@ on:
       reason:
         description: "왜 apply를 실행하나요?"
         required: true
-      app_ami_id:
-        description: "배포할 AMI ID (예: ami-xxxxxxxxxxxxxxxxx)"
-        required: true
       run_instance_refresh:
         description: "apply 이후 ASG 인스턴스 리프레시 실행 여부"
         required: true
         type: boolean
-        default: true
-  repository_dispatch:
-    types:
-      - deploy_ami
+        default: false
 
 jobs:
   terraform-apply:
@@ -30,64 +24,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Resolve deploy inputs
-        id: resolve
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          EVENT_NAME="${{ github.event_name }}"
-          ENVIRONMENT="prod"
-          RUN_INSTANCE_REFRESH="true"
-
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            AMI_ID="${{ github.event.inputs.app_ami_id }}"
-            REASON="${{ github.event.inputs.reason }}"
-            RUN_INSTANCE_REFRESH="${{ github.event.inputs.run_instance_refresh }}"
-          else
-            AMI_ID="${{ github.event.client_payload.app_ami_id }}"
-            REASON="${{ github.event.client_payload.reason }}"
-            PAYLOAD_ENV="${{ github.event.client_payload.environment }}"
-            if [ -n "$PAYLOAD_ENV" ]; then
-              ENVIRONMENT="$PAYLOAD_ENV"
-            fi
-            if [ -n "${{ github.event.client_payload.run_instance_refresh }}" ]; then
-              RUN_INSTANCE_REFRESH="${{ github.event.client_payload.run_instance_refresh }}"
-            fi
-          fi
-
-          if [ "$ENVIRONMENT" != "prod" ]; then
-            echo "This workflow only supports prod. Got: $ENVIRONMENT" >&2
-            exit 1
-          fi
-
-          if [ -z "$AMI_ID" ]; then
-            echo "app_ami_id is required" >&2
-            exit 1
-          fi
-
-          if [[ ! "$AMI_ID" =~ ^ami-[a-z0-9]+$ ]]; then
-            echo "Invalid app_ami_id format: $AMI_ID" >&2
-            exit 1
-          fi
-
-          if [ -z "$REASON" ]; then
-            REASON="Deploy app AMI $AMI_ID"
-          fi
-
-          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
-          echo "app_ami_id=$AMI_ID" >> "$GITHUB_OUTPUT"
-          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
-          echo "run_instance_refresh=$RUN_INSTANCE_REFRESH" >> "$GITHUB_OUTPUT"
-
       - name: Apply Summary (start)
         run: |
           {
             echo "## Terraform Apply (prod)"
             echo ""
-            echo "- Reason: ${{ steps.resolve.outputs.reason }}"
-            echo "- AMI: ${{ steps.resolve.outputs.app_ami_id }}"
-            echo "- Instance refresh: ${{ steps.resolve.outputs.run_instance_refresh }}"
+            echo "- Reason: ${{ github.event.inputs.reason }}"
+            echo "- Instance refresh: ${{ github.event.inputs.run_instance_refresh }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup Terraform
@@ -114,7 +57,6 @@ jobs:
           environment    = "prod"
           aws_profile    = "prod-cchaksa"
           aws_region     = "ap-northeast-2"
-          app_ami_id     = "${{ steps.resolve.outputs.app_ami_id }}"
           EOFVARS
 
       - name: Terraform Init
@@ -133,7 +75,7 @@ jobs:
             -var-file="prod.tfvars"
 
       - name: Start ASG Instance Refresh
-        if: steps.resolve.outputs.run_instance_refresh == 'true'
+        if: github.event.inputs.run_instance_refresh == 'true'
         run: |
           aws autoscaling start-instance-refresh \
             --auto-scaling-group-name prod-app-asg \
@@ -144,6 +86,5 @@ jobs:
           {
             echo ""
             echo "### Done"
-            echo "- Applied AMI: ${{ steps.resolve.outputs.app_ami_id }}"
             echo "- ASG: prod-app-asg"
           } >> "$GITHUB_STEP_SUMMARY"

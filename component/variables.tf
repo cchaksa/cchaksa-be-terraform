@@ -22,3 +22,21 @@ variable "app_ami_id" {
   type        = string
   default     = null
 }
+
+variable "app_port" {
+  description = "Spring 애플리케이션 포트"
+  type        = number
+  default     = 8080
+}
+
+variable "app_health_path" {
+  description = "로컬 health check 경로"
+  type        = string
+  default     = "/health"
+}
+
+variable "app_service_name" {
+  description = "systemd 서비스 이름"
+  type        = string
+  default     = "haksa"
+}
