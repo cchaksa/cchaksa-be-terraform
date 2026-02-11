@@ -26,7 +26,7 @@ variable "enable_develop" {
 }
 
 variable "app_ami_id" {
-  description = "고정할 AMI ID. null이면 최신 AMI를 사용."
+  description = "선택값: 지정하면 해당 AMI를 사용, null이면 기본 AMI 검색 결과 사용"
   type        = string
   default     = null
 }

@@ -25,4 +25,8 @@ resource "aws_launch_template" "app" {
       Environment = var.environment
     }
   }
+
+  lifecycle {
+    ignore_changes = [image_id]
+  }
 }
