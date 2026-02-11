@@ -31,8 +31,8 @@ resource "aws_iam_policy" "ec2_lifecycle_hook" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "autoscaling:CompleteLifecycleAction",
           "autoscaling:DescribeAutoScalingGroups",
           "autoscaling:DescribeAutoScalingInstances"
@@ -46,4 +46,9 @@ resource "aws_iam_policy" "ec2_lifecycle_hook" {
 resource "aws_iam_role_policy_attachment" "ec2_lifecycle_hook" {
   role       = aws_iam_role.ec2.name
   policy_arn = aws_iam_policy.ec2_lifecycle_hook.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_cloudwatch_agent" {
+  role       = aws_iam_role.ec2.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }

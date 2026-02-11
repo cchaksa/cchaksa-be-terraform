@@ -6,6 +6,7 @@ resource "aws_launch_template" "app" {
     asg_name            = var.app_asg_name
     lifecycle_hook_name = var.app_lifecycle_hook_name
     aws_region          = var.aws_region
+    environment         = var.environment
   }))
 
   iam_instance_profile {
