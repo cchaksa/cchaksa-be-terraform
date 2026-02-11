@@ -27,6 +27,9 @@ mkdir -p /usr/local/bin
 cat >/usr/local/bin/start-${service_name}.sh <<STARTSCRIPT
 #!/usr/bin/env bash
 set -euo pipefail
+set -a
+[ -f /home/ubuntu/env.sh ] && source /home/ubuntu/env.sh
+set +a
 cd $APP_DIR
 pkill -f 'java .*app.jar' || true
 nohup java -Xms1024m -Xmx1024m -XX:+UseG1GC -XX:MaxMetaspaceSize=256m -jar app.jar --spring.profiles.active=dev >> $NOHUP_LOG 2>&1 &
