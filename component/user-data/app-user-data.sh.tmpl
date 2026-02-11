@@ -3,81 +3,19 @@ set -euo pipefail
 
 exec > >(tee -a /var/log/user-data.log) 2>&1
 
-ASG_NAME="${asg_name}"
-LIFECYCLE_HOOK_NAME="${lifecycle_hook_name}"
-AWS_REGION="${aws_region}"
-APP_PORT="${app_port}"
-HEALTH_PATH="${health_path}"
 SERVICE_NAME="${service_name}"
 
-APP_DIR="/app"
+APP_DIR="/home/ubuntu/app"
 APP_JAR_PATH="$APP_DIR/app.jar"
-HEALTH_URL="http://127.0.0.1:$APP_PORT$HEALTH_PATH"
-NOHUP_LOG="/var/log/${service_name}.log"
-LIFECYCLE_RESULT="ABANDON"
-MAX_WAIT_SECONDS=300
-SLEEP_SECONDS=5
+NOHUP_LOG="$APP_DIR/app.log"
 
 if command -v dnf >/dev/null 2>&1; then
-  dnf -y install curl awscli java-17-amazon-corretto-headless amazon-cloudwatch-agent
+  dnf -y install java-17-amazon-corretto-headless
 elif command -v yum >/dev/null 2>&1; then
-  yum -y install curl awscli java-17-amazon-corretto-headless amazon-cloudwatch-agent
+  yum -y install java-17-amazon-corretto-headless
 elif command -v apt-get >/dev/null 2>&1; then
   apt-get update -y
-  apt-get install -y curl awscli openjdk-17-jre-headless amazon-cloudwatch-agent
-fi
-
-if [ -x /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl ]; then
-  cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<CWAGENT
-{
-  "agent": {
-    "region": "${aws_region}"
-  },
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "/var/log/user-data.log",
-            "log_group_name": "/${environment}/ec2/user-data",
-            "log_stream_name": "{instance_id}/user-data",
-            "retention_in_days": 30
-          },
-          {
-            "file_path": "/var/log/cloud-init-output.log",
-            "log_group_name": "/${environment}/ec2/user-data",
-            "log_stream_name": "{instance_id}/cloud-init-output",
-            "retention_in_days": 30
-          },
-          {
-            "file_path": "/var/log/messages",
-            "log_group_name": "/${environment}/ec2/system",
-            "log_stream_name": "{instance_id}/messages",
-            "retention_in_days": 30
-          },
-          {
-            "file_path": "/var/log/syslog",
-            "log_group_name": "/${environment}/ec2/system",
-            "log_stream_name": "{instance_id}/syslog",
-            "retention_in_days": 30
-          },
-          {
-            "file_path": "$NOHUP_LOG",
-            "log_group_name": "/${environment}/ec2/app",
-            "log_stream_name": "{instance_id}/app",
-            "retention_in_days": 30
-          }
-        ]
-      }
-    }
-  }
-}
-CWAGENT
-  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-    -a fetch-config \
-    -m ec2 \
-    -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
-    -s || true
+  apt-get install -y openjdk-17-jre-headless
 fi
 
 if [ ! -f "$APP_JAR_PATH" ]; then
@@ -112,24 +50,3 @@ SERVICE
 systemctl daemon-reload
 systemctl enable ${service_name}.service
 systemctl restart ${service_name}.service
-
-WAITED=0
-until curl -fsS "$HEALTH_URL" >/dev/null 2>&1; do
-  if [ "$WAITED" -ge "$MAX_WAIT_SECONDS" ]; then
-    journalctl -u ${service_name}.service -n 200 --no-pager || true
-    tail -n 200 "$NOHUP_LOG" || true
-    break
-  fi
-  sleep "$SLEEP_SECONDS"
-  WAITED=$((WAITED + SLEEP_SECONDS))
-done
-
-if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
-  LIFECYCLE_RESULT="CONTINUE"
-fi
-
-aws autoscaling complete-lifecycle-action \
-  --region "$AWS_REGION" \
-  --auto-scaling-group-name "$ASG_NAME" \
-  --lifecycle-hook-name "$LIFECYCLE_HOOK_NAME" \
-  --lifecycle-action-result "$LIFECYCLE_RESULT"
