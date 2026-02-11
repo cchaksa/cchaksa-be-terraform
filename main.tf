@@ -16,12 +16,15 @@ provider "aws" {
 }
 
 module "component" {
-  source      = "./component"
-  environment = var.environment
-  enable      = var.environment == "develop" ? var.enable_develop : true
-  app_ami_id  = var.app_ami_id
-  aws_region  = var.aws_region
-  app_asg_name           = "${var.environment}-app-asg"
+  source                  = "./component"
+  environment             = var.environment
+  enable                  = var.environment == "develop" ? var.enable_develop : true
+  app_ami_id              = var.app_ami_id
+  app_port                = var.app_port
+  app_health_path         = var.app_health_path
+  app_service_name        = var.app_service_name
+  aws_region              = var.aws_region
+  app_asg_name            = "${var.environment}-app-asg"
   app_lifecycle_hook_name = "${var.environment}-app-launch-hook"
 }
 

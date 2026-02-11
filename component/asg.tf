@@ -1,8 +1,8 @@
 resource "aws_autoscaling_group" "app" {
-  name                = var.app_asg_name
-  min_size            = 1
-  desired_capacity    = 1
-  max_size            = 2
+  name             = var.app_asg_name
+  min_size         = 1
+  desired_capacity = 1
+  max_size         = 2
 
   vpc_zone_identifier = [
     aws_subnet.public_a.id

@@ -6,11 +6,19 @@ on:
       reason:
         description: "왜 apply를 실행하나요?"
         required: true
+      run_instance_refresh:
+        description: "apply 이후 ASG 인스턴스 리프레시 실행 여부"
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   terraform-apply:
     runs-on: ubuntu-latest
     environment: prod
+    concurrency:
+      group: terraform-apply-prod
+      cancel-in-progress: false
 
     steps:
       - name: Checkout code
@@ -18,10 +26,12 @@ jobs:
 
       - name: Apply Summary (start)
         run: |
-          echo "## 🚀 Terraform Apply (prod)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Terraform Apply (prod)"
+            echo ""
+            echo "- Reason: ${{ github.event.inputs.reason }}"
+            echo "- Instance refresh: ${{ github.event.inputs.run_instance_refresh }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -43,11 +53,11 @@ jobs:
 
       - name: Create prod tfvars
         run: |
-          cat > prod.tfvars << 'EOF'
+          cat > prod.tfvars << EOFVARS
           environment    = "prod"
           aws_profile    = "prod-cchaksa"
           aws_region     = "ap-northeast-2"
-          EOF
+          EOFVARS
 
       - name: Terraform Init
         run: |
@@ -55,8 +65,26 @@ jobs:
             -backend-config="backend/backend-prod.hcl" \
             -reconfigure
 
+      - name: Terraform Plan
+        run: terraform plan -var-file="prod.tfvars" -no-color
+
       - name: Terraform Apply
         run: |
           terraform apply \
             -auto-approve \
             -var-file="prod.tfvars"
+
+      - name: Start ASG Instance Refresh
+        if: github.event.inputs.run_instance_refresh == 'true'
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name prod-app-asg \
+            --preferences '{"MinHealthyPercentage":90,"InstanceWarmup":180}'
+
+      - name: Apply Summary (done)
+        run: |
+          {
+            echo ""
+            echo "### Done"
+            echo "- ASG: prod-app-asg"
+          } >> "$GITHUB_STEP_SUMMARY"
