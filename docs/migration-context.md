@@ -29,12 +29,13 @@
 
 3. 마이그레이션 모듈 현황
 - 스크래핑 비동기 모듈: `SQS + DLQ + EventBridge Pipe + ECS RunTask` (`modules/scraper_async/main.tf`)
+- 스크래핑 워커 모듈: `ECS Cluster + TaskDefinition + IAM + CloudWatch Logs` (`modules/scraper_worker/main.tf`)
 - 백엔드 서버리스 모듈: `Lambda + API Gateway + optional SQS` (`modules/backend_serverless/main.tf`)
-- 기본 토글 OFF: `enable_scraper_async=false`, `enable_backend_serverless=false`
+- 기본 토글 OFF: `enable_scraper_async=false`, `enable_scraper_worker_infra=false`, `enable_backend_serverless=false`
 
 4. 누락/사전 필요 항목
-- ECR 리소스가 Terraform에 없음(이미지 저장소 별도 준비 필요)
-- 스크래핑 워커 `TaskDefinition/Cluster/Role/Subnet/SG`는 외부 참조값 주입 필요
+- 스크래핑 워커 이미지 빌드/푸시 파이프라인 필요
+- `subnet/sg` 값은 환경별로 확정 후 주입 필요
 
 ## 정정 (2026-03-03)
 - 스크래핑 워커 ECR 리포지토리는 Terraform에 추가 완료:
@@ -47,6 +48,9 @@
 - `develop-shadow` 전용 변수 파일 추가:
   - `tfvars/develop-shadow.tfvars`
   - 접두어 고정: `develop-shadow-scraper`
+- 스크래핑 워커 실행 모듈 추가:
+  - `modules/scraper_worker/main.tf`
+  - `enable_scraper_worker_infra=true`면 ECS cluster/task role/task definition 자동 생성
 
 ## As-Is
 - 백엔드: `EC2 + ASG(min=1) + ALB` 상시 운영
@@ -72,7 +76,8 @@
 ## 사전 작업 체크리스트(스크래핑)
 - 이미지 저장소 준비(ECR 생성 또는 외부 레지스트리 선택)
 - 스크래핑 워커 이미지 빌드/푸시 파이프라인 준비
-- ECS Cluster ARN / TaskDefinition ARN / TaskRole/ExecutionRole ARN 확보
+- `enable_scraper_worker_infra=true` 사용 시 ECS Cluster/TaskDefinition/Role 자동 생성
+- `enable_scraper_worker_infra=false` 사용 시 ECS Cluster ARN / TaskDefinition ARN / TaskRole/ExecutionRole ARN 수동 확보
 - RunTask 대상 subnet/sg 확정
 - 백엔드 내부 결과 수신 API 인증 방식(HMAC/JWT) 확정
 
@@ -88,7 +93,8 @@
 - SQS DLQ: 이미 코드화됨 (`modules/scraper_async`)
 - EventBridge Pipe: 이미 코드화됨 (`modules/scraper_async`)
 - Pipe IAM Role/Policy: 이미 코드화됨 (`modules/scraper_async`)
-- ECS RunTask 대상 워커(TaskDefinition/이미지 배포): 추가 필요(외부 리소스/코드 배포)
+- 워커 ECS Cluster/TaskDefinition/IAM/Logs: 이미 코드화됨 (`modules/scraper_worker`)
+- 워커 이미지 배포(ECR push): 추가 필요(배포 파이프라인)
 
 2. 백엔드 2단계
 - Lambda + Alias: 이미 코드화됨 (`modules/backend_serverless`)
@@ -254,6 +260,9 @@
     - 변수 검증 강화:
       - `enable_scraper_async=true` 시 필수 참조값 누락 방지
       - `enable_backend_serverless=true` 시 필수 산출물 경로 누락 방지
+  - 스크래핑 워커 인프라 자동 생성 경로 추가:
+    - `enable_scraper_worker_infra=true` 시 ECS Cluster/TaskDefinition/IAM/Logs 생성
+    - `enable_scraper_async` 모듈과 워커 모듈 연동(수동 ARN 주입 최소화)
 
 ## 검증 결과
 - 문서 규칙 검증:

@@ -26,12 +26,12 @@ terraform init \
 
 3. `tfvars/develop-shadow.tfvars` 값 채우기
 - `enable_scraper_async=true`
-- `scraper_async.ecs_cluster_arn`
-- `scraper_async.ecs_task_definition_arn`
-- `scraper_async.ecs_task_role_arns`
+- `enable_scraper_worker_infra=true`
 - `scraper_async.subnet_ids`
 - `scraper_async.security_group_ids`
 - `scraper_async.name_prefix=develop-shadow-scraper`
+- `scraper_worker.name_prefix=develop-shadow-scraper`
+- `scraper_worker.image_uri=<ECR_URI>:develop-shadow-<sha>`
 
 4. Plan/Apply
 ```bash
@@ -42,7 +42,7 @@ terraform apply -var-file=tfvars/develop-shadow.tfvars
 5. 워커 이미지 준비/배포
 - 생성된 ECR URL 확인: `terraform output scraper_worker_ecr_repository_url`
 - 이미지 태그: `develop-shadow-<git-sha>`
-- push 후 TaskDefinition의 이미지 URI 갱신
+- push 후 `scraper_worker.image_uri`를 동일 태그로 갱신하여 재적용
 
 6. 기능 검증
 - 정상/포털 장애/중복 메시지/visibility timeout/DLQ 재처리

@@ -28,15 +28,31 @@ module "component" {
   app_lifecycle_hook_name = "${var.environment}-app-launch-hook"
 }
 
+module "scraper_worker" {
+  source = "./modules/scraper_worker"
+  count  = var.enable_scraper_async && var.enable_scraper_worker_infra ? 1 : 0
+
+  environment           = var.environment
+  aws_region            = var.aws_region
+  name_prefix           = var.scraper_worker.name_prefix
+  image_uri             = var.scraper_worker.image_uri
+  cpu                   = var.scraper_worker.cpu
+  memory                = var.scraper_worker.memory
+  task_environment      = var.scraper_worker.task_environment
+  task_command          = var.scraper_worker.task_command
+  log_retention_in_days = var.scraper_worker.log_retention_in_days
+  task_role_policy_arns = var.scraper_worker.task_role_policy_arns
+}
+
 module "scraper_async" {
   source = "./modules/scraper_async"
   count  = var.enable_scraper_async ? 1 : 0
 
   environment             = var.environment
   name_prefix             = var.scraper_async.name_prefix
-  ecs_cluster_arn         = var.scraper_async.ecs_cluster_arn
-  ecs_task_definition_arn = var.scraper_async.ecs_task_definition_arn
-  ecs_task_role_arns      = var.scraper_async.ecs_task_role_arns
+  ecs_cluster_arn         = var.enable_scraper_worker_infra ? module.scraper_worker[0].ecs_cluster_arn : var.scraper_async.ecs_cluster_arn
+  ecs_task_definition_arn = var.enable_scraper_worker_infra ? module.scraper_worker[0].ecs_task_definition_arn : var.scraper_async.ecs_task_definition_arn
+  ecs_task_role_arns      = var.enable_scraper_worker_infra ? [module.scraper_worker[0].execution_role_arn, module.scraper_worker[0].task_role_arn] : var.scraper_async.ecs_task_role_arns
   subnet_ids              = var.scraper_async.subnet_ids
   security_group_ids      = var.scraper_async.security_group_ids
   assign_public_ip        = var.scraper_async.assign_public_ip

@@ -16,11 +16,13 @@
 ## 3. 모듈 구조
 - `component/`: 기존 운영 인프라 모듈
 - `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask + ECR 연동)
+- `modules/scraper_worker/`: 스크래핑 워커 실행 모듈(ECS Cluster/TaskDefinition/IAM/Logs)
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
 - `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
 - `tfvars/develop-shadow.tfvars`: develop-shadow 적용 전용 변수 파일
 - 스크래핑 모듈 입력 원칙:
   - 루트 변수 `scraper_async` 객체 1개로 최소 필수값만 전달
+  - 워커 리소스 자동 생성 시 루트 변수 `scraper_worker` 객체 사용
   - 큐 이름/리텐션/배치/pipe 상태 등은 모듈 내부 기본값 사용
   - `enable_scraper_async=true`일 때 필수 참조값(Cluster/TaskDefinition/Role/Subnet/SG/Prefix) 누락 금지
 - 백엔드 서버리스 입력 원칙:

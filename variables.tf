@@ -56,6 +56,44 @@ variable "enable_scraper_async" {
   default     = false
 }
 
+variable "enable_scraper_worker_infra" {
+  description = "스크래핑 워커 ECS Cluster/TaskDefinition/IAM을 Terraform으로 함께 생성"
+  type        = bool
+  default     = false
+}
+
+variable "scraper_worker" {
+  description = "스크래핑 워커 실행 정의(이미지 URI/스펙/환경변수)"
+  type = object({
+    name_prefix           = string
+    image_uri             = string
+    cpu                   = number
+    memory                = number
+    task_environment      = map(string)
+    task_command          = list(string)
+    log_retention_in_days = number
+    task_role_policy_arns = list(string)
+  })
+  default = {
+    name_prefix           = "develop-shadow-scraper"
+    image_uri             = ""
+    cpu                   = 1024
+    memory                = 2048
+    task_environment      = {}
+    task_command          = []
+    log_retention_in_days = 30
+    task_role_policy_arns = []
+  }
+
+  validation {
+    condition = !var.enable_scraper_worker_infra || (
+      trimspace(var.scraper_worker.name_prefix) != "" &&
+      trimspace(var.scraper_worker.image_uri) != ""
+    )
+    error_message = "enable_scraper_worker_infra=true 인 경우 scraper_worker.name_prefix, scraper_worker.image_uri를 설정해야 한다."
+  }
+}
+
 variable "scraper_async" {
   description = "스크래핑 비동기 모듈 최소 입력(필수 참조값만 관리)"
   type = object({
@@ -84,14 +122,34 @@ variable "scraper_async" {
 
   validation {
     condition = !var.enable_scraper_async || (
-      trimspace(var.scraper_async.ecs_cluster_arn) != "" &&
-      trimspace(var.scraper_async.ecs_task_definition_arn) != "" &&
-      length(var.scraper_async.ecs_task_role_arns) > 0 &&
       length(var.scraper_async.subnet_ids) > 0 &&
       length(var.scraper_async.security_group_ids) > 0 &&
-      trimspace(var.scraper_async.name_prefix) != ""
+      trimspace(var.scraper_async.name_prefix) != "" &&
+      (
+        var.enable_scraper_worker_infra || (
+          trimspace(var.scraper_async.ecs_cluster_arn) != "" &&
+          trimspace(var.scraper_async.ecs_task_definition_arn) != "" &&
+          length(var.scraper_async.ecs_task_role_arns) > 0
+        )
+      )
     )
-    error_message = "enable_scraper_async=true 인 경우 scraper_async의 ecs_cluster_arn, ecs_task_definition_arn, ecs_task_role_arns, subnet_ids, security_group_ids, name_prefix를 모두 설정해야 한다."
+    error_message = "enable_scraper_async=true 인 경우 subnet_ids/security_group_ids/name_prefix는 필수이며, enable_scraper_worker_infra=false면 ecs_cluster_arn/ecs_task_definition_arn/ecs_task_role_arns도 필수다."
+  }
+
+  validation {
+    condition = !var.enable_scraper_async || !var.enable_scraper_worker_infra || (
+      var.scraper_async.name_prefix == var.scraper_worker.name_prefix
+    )
+    error_message = "enable_scraper_worker_infra=true 인 경우 scraper_async.name_prefix와 scraper_worker.name_prefix를 동일하게 설정해야 한다."
+  }
+
+  validation {
+    condition = !var.enable_scraper_async || var.enable_scraper_worker_infra || (
+      trimspace(var.scraper_async.ecs_cluster_arn) != "" &&
+      trimspace(var.scraper_async.ecs_task_definition_arn) != "" &&
+      length(var.scraper_async.ecs_task_role_arns) > 0
+    )
+    error_message = "enable_scraper_worker_infra=false 인 경우 scraper_async의 ecs_cluster_arn, ecs_task_definition_arn, ecs_task_role_arns를 설정해야 한다."
   }
 }
 # endregion
