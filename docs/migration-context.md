@@ -263,6 +263,11 @@
   - 스크래핑 워커 인프라 자동 생성 경로 추가:
     - `enable_scraper_worker_infra=true` 시 ECS Cluster/TaskDefinition/IAM/Logs 생성
     - `enable_scraper_async` 모듈과 워커 모듈 연동(수동 ARN 주입 최소화)
+  - 운영 Launch Template 드리프트 비노출 정책 채택:
+    - 대상: `component/launch-template.tf`의 `aws_launch_template.app`
+    - 변경: `lifecycle.ignore_changes = all`
+    - 이유: 운영 AMI/LT는 콘솔 수동 변경을 허용하고 plan 노이즈를 제거하기 위함
+    - 영향: LT 관련 코드 변경(`instance_type`, `user_data`, `network_interfaces` 포함)은 Terraform apply로 반영되지 않음
 
 ## 검증 결과
 - 문서 규칙 검증:

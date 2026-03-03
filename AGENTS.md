@@ -47,6 +47,7 @@
 - 예상치 못한 변경 발견 시 즉시 중단 후 공유
 - 모든 작업은 double check 수행(포맷/검증/영향 확인)
 - 스크래핑 전환 시 워커 스펙은 `Fargate 1 vCPU / 2GB`, 접두어는 `develop-shadow-*`를 기본값으로 사용
+- 운영 Launch Template은 콘솔 수동 관리 정책을 적용하며 Terraform은 LT 드리프트 감지/적용을 제외한다(`ignore_changes = all`)
 
 ## 6. Context 문서 규칙
 - 컨텍스트 메타 규칙은 `docs/CONTEXT.md`를 따른다.
