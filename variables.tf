@@ -81,6 +81,18 @@ variable "scraper_async" {
     condition     = var.scraper_async.assign_public_ip == "ENABLED" || var.scraper_async.assign_public_ip == "DISABLED"
     error_message = "scraper_async.assign_public_ip must be ENABLED or DISABLED."
   }
+
+  validation {
+    condition = !var.enable_scraper_async || (
+      trimspace(var.scraper_async.ecs_cluster_arn) != "" &&
+      trimspace(var.scraper_async.ecs_task_definition_arn) != "" &&
+      length(var.scraper_async.ecs_task_role_arns) > 0 &&
+      length(var.scraper_async.subnet_ids) > 0 &&
+      length(var.scraper_async.security_group_ids) > 0 &&
+      trimspace(var.scraper_async.name_prefix) != ""
+    )
+    error_message = "enable_scraper_async=true 인 경우 scraper_async의 ecs_cluster_arn, ecs_task_definition_arn, ecs_task_role_arns, subnet_ids, security_group_ids, name_prefix를 모두 설정해야 한다."
+  }
 }
 # endregion
 
@@ -106,6 +118,14 @@ variable "backend_serverless" {
     lambda_environment      = {}
     provisioned_concurrency = 0
     create_async_queue      = false
+  }
+
+  validation {
+    condition = !var.enable_backend_serverless || (
+      trimspace(var.backend_serverless.app_name) != "" &&
+      trimspace(var.backend_serverless.lambda_package_path) != ""
+    )
+    error_message = "enable_backend_serverless=true 인 경우 backend_serverless.app_name, backend_serverless.lambda_package_path를 설정해야 한다."
   }
 }
 # endregion

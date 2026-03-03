@@ -15,14 +15,18 @@
 
 ## 3. 모듈 구조
 - `component/`: 기존 운영 인프라 모듈
-- `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask 연동)
+- `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask + ECR 연동)
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
+- `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
+- `tfvars/develop-shadow.tfvars`: develop-shadow 적용 전용 변수 파일
 - 스크래핑 모듈 입력 원칙:
   - 루트 변수 `scraper_async` 객체 1개로 최소 필수값만 전달
   - 큐 이름/리텐션/배치/pipe 상태 등은 모듈 내부 기본값 사용
+  - `enable_scraper_async=true`일 때 필수 참조값(Cluster/TaskDefinition/Role/Subnet/SG/Prefix) 누락 금지
 - 백엔드 서버리스 입력 원칙:
   - 루트 변수 `backend_serverless` 객체 1개로 최소 필수값만 전달
   - runtime/handler/memory/timeout/async 큐 정책값은 모듈 내부 기본값 사용
+  - `enable_backend_serverless=true`일 때 `app_name`, `lambda_package_path` 누락 금지
 
 ## 4. 브랜치/커밋/PR 규칙
 - 브랜치 규칙: `feat/<번호>`
@@ -40,6 +44,7 @@
 - 운영 리소스 직접 수정 금지(병행 리소스 생성 후 전환)
 - 예상치 못한 변경 발견 시 즉시 중단 후 공유
 - 모든 작업은 double check 수행(포맷/검증/영향 확인)
+- 스크래핑 전환 시 워커 스펙은 `Fargate 1 vCPU / 2GB`, 접두어는 `develop-shadow-*`를 기본값으로 사용
 
 ## 6. Context 문서 규칙
 - 컨텍스트 메타 규칙은 `docs/CONTEXT.md`를 따른다.

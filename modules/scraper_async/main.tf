@@ -2,6 +2,45 @@ locals {
   name_prefix = trimspace(var.name_prefix) != "" ? var.name_prefix : "${var.environment}-shadow-scraper"
   queue_name  = "${local.name_prefix}-jobs"
   dlq_name    = "${local.name_prefix}-jobs-dlq"
+  ecr_name    = "${local.name_prefix}-worker"
+}
+
+resource "aws_ecr_repository" "worker" {
+  count = var.create_ecr_repository ? 1 : 0
+
+  name                 = local.ecr_name
+  image_tag_mutability = var.ecr_image_tag_mutability
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = local.ecr_name
+    Environment = var.environment
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "worker" {
+  count = var.create_ecr_repository ? 1 : 0
+
+  repository = aws_ecr_repository.worker[0].name
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 50 images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 50
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
 }
 
 resource "aws_sqs_queue" "dlq" {

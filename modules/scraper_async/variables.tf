@@ -66,3 +66,13 @@ variable "pipe_desired_state" {
   type    = string
   default = "RUNNING"
 }
+
+variable "create_ecr_repository" {
+  type    = bool
+  default = true
+}
+
+variable "ecr_image_tag_mutability" {
+  type    = string
+  default = "MUTABLE"
+}
