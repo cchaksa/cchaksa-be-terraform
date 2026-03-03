@@ -5,9 +5,14 @@ exec > >(tee -a /var/log/user-data.log) 2>&1
 
 SERVICE_NAME="${service_name}"
 
+APP_USER="ubuntu"
+APP_GROUP="ubuntu"
 APP_DIR="/home/ubuntu/app"
 APP_JAR_PATH="$APP_DIR/app.jar"
 NOHUP_LOG="$APP_DIR/app.log"
+APP_ENV_FILE="/home/ubuntu/env.sh"
+APP_LOG_DIR="/var/log/app"
+APP_FILE_LOG="$APP_LOG_DIR/chukchuk-haksa.log"
 
 if command -v dnf >/dev/null 2>&1; then
   dnf -y install java-17-amazon-corretto-headless
@@ -18,21 +23,56 @@ elif command -v apt-get >/dev/null 2>&1; then
   apt-get install -y openjdk-17-jre-headless
 fi
 
+if ! id -u "$APP_USER" >/dev/null 2>&1; then
+  echo "missing deploy user: $APP_USER"
+  exit 1
+fi
+
+mkdir -p "$APP_DIR"
+chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
+chmod 755 "$APP_DIR"
+
+touch "$NOHUP_LOG"
+chown "$APP_USER:$APP_GROUP" "$NOHUP_LOG"
+chmod 664 "$NOHUP_LOG"
+
+mkdir -p "$APP_LOG_DIR"
+touch "$APP_FILE_LOG"
+chown -R "$APP_USER:$APP_GROUP" "$APP_LOG_DIR"
+chmod 755 "$APP_LOG_DIR"
+chmod 664 "$APP_FILE_LOG"
+
+if [ -f "$APP_ENV_FILE" ]; then
+  chown "$APP_USER:$APP_GROUP" "$APP_ENV_FILE"
+  chmod 600 "$APP_ENV_FILE"
+fi
+
+cat >/etc/sudoers.d/90-${service_name}-deploy <<SUDOERS
+$APP_USER ALL=(root) NOPASSWD:/usr/bin/lsof,/usr/bin/kill,/bin/kill
+SUDOERS
+chmod 440 /etc/sudoers.d/90-${service_name}-deploy
+if command -v visudo >/dev/null 2>&1; then
+  visudo -cf /etc/sudoers.d/90-${service_name}-deploy
+fi
+
 if [ ! -f "$APP_JAR_PATH" ]; then
   echo "missing app jar: $APP_JAR_PATH"
   exit 1
 fi
+chown "$APP_USER:$APP_GROUP" "$APP_JAR_PATH"
+chmod 644 "$APP_JAR_PATH"
 
 mkdir -p /usr/local/bin
 cat >/usr/local/bin/start-${service_name}.sh <<STARTSCRIPT
 #!/usr/bin/env bash
 set -euo pipefail
 set -a
-[ -f /home/ubuntu/env.sh ] && source /home/ubuntu/env.sh
+[ -f "$APP_ENV_FILE" ] && source "$APP_ENV_FILE"
 set +a
 cd $APP_DIR
 pkill -f 'java .*app.jar' || true
-nohup java -Xms1024m -Xmx1024m -XX:+UseG1GC -XX:MaxMetaspaceSize=256m -jar app.jar --spring.profiles.active=dev >> $NOHUP_LOG 2>&1 &
+PROFILE="$${SPRING_PROFILES_ACTIVE:-${environment}}"
+nohup java -Xms1024m -Xmx1024m -XX:+UseG1GC -XX:MaxMetaspaceSize=256m -jar app.jar --spring.profiles.active="\$PROFILE" >> $NOHUP_LOG 2>&1 &
 STARTSCRIPT
 chmod 755 /usr/local/bin/start-${service_name}.sh
 
@@ -44,6 +84,9 @@ After=network.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+User=$APP_USER
+Group=$APP_GROUP
+WorkingDirectory=$APP_DIR
 ExecStart=/usr/local/bin/start-${service_name}.sh
 
 [Install]

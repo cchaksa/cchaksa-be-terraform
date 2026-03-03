@@ -1,5 +1,5 @@
 resource "aws_acm_certificate" "app" {
-  domain_name       = "dev.api.cchaksa.com"
+  domain_name       = "api.cchaksa.com"
   validation_method = "DNS"
 
   lifecycle {

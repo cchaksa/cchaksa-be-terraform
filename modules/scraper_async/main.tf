@@ -144,7 +144,7 @@ resource "aws_pipes_pipe" "scraper_jobs_to_ecs" {
       task_definition_arn = var.ecs_task_definition_arn
 
       network_configuration {
-        awsvpc_configuration {
+        aws_vpc_configuration {
           subnets          = var.subnet_ids
           security_groups  = var.security_group_ids
           assign_public_ip = var.assign_public_ip
