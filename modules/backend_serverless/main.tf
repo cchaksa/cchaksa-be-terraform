@@ -1,0 +1,135 @@
+locals {
+  lambda_handler       = "com.example.Handler::handleRequest"
+  lambda_runtime       = "java17"
+  lambda_architectures = ["arm64"]
+  lambda_timeout       = 30
+  lambda_memory_size   = 1024
+
+  async_queue_visibility_secs = 120
+  async_queue_retention_secs  = 345600
+  async_queue_max_receive     = 5
+}
+
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "lambda_exec" {
+  name               = "${var.environment}-${var.app_name}-lambda-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_cloudwatch_log_group" "lambda" {
+  name              = "/aws/lambda/${var.environment}-${var.app_name}"
+  retention_in_days = 30
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+resource "aws_lambda_function" "backend" {
+  filename         = var.lambda_package_path
+  function_name    = "${var.environment}-${var.app_name}"
+  role             = aws_iam_role.lambda_exec.arn
+  handler          = local.lambda_handler
+  source_code_hash = filebase64sha256(var.lambda_package_path)
+  runtime          = local.lambda_runtime
+  timeout          = local.lambda_timeout
+  memory_size      = local.lambda_memory_size
+  architectures    = local.lambda_architectures
+  publish          = true
+
+  environment {
+    variables = var.lambda_environment
+  }
+
+  depends_on = [aws_cloudwatch_log_group.lambda]
+}
+
+resource "aws_lambda_alias" "live" {
+  name             = "live"
+  description      = "Production-like alias for gradual cutover"
+  function_name    = aws_lambda_function.backend.function_name
+  function_version = aws_lambda_function.backend.version
+}
+
+resource "aws_lambda_provisioned_concurrency_config" "live" {
+  count = var.provisioned_concurrency > 0 ? 1 : 0
+
+  function_name                     = aws_lambda_function.backend.function_name
+  qualifier                         = aws_lambda_alias.live.name
+  provisioned_concurrent_executions = var.provisioned_concurrency
+}
+
+resource "aws_apigatewayv2_api" "http_api" {
+  name          = "${var.environment}-${var.app_name}-http-api"
+  protocol_type = "HTTP"
+}
+
+resource "aws_apigatewayv2_integration" "lambda_proxy" {
+  api_id                 = aws_apigatewayv2_api.http_api.id
+  integration_type       = "AWS_PROXY"
+  integration_method     = "POST"
+  integration_uri        = aws_lambda_alias.live.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "default" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "$default"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_proxy.id}"
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+resource "aws_lambda_permission" "apigw_invoke" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.backend.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+resource "aws_sqs_queue" "async_dlq" {
+  count = var.create_async_queue ? 1 : 0
+
+  name                       = "${var.environment}-${var.app_name}-async-dlq"
+  message_retention_seconds  = local.async_queue_retention_secs
+  visibility_timeout_seconds = local.async_queue_visibility_secs
+}
+
+resource "aws_sqs_queue" "async_queue" {
+  count = var.create_async_queue ? 1 : 0
+
+  name                       = "${var.environment}-${var.app_name}-async-queue"
+  message_retention_seconds  = local.async_queue_retention_secs
+  visibility_timeout_seconds = local.async_queue_visibility_secs
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.async_dlq[0].arn
+    maxReceiveCount     = local.async_queue_max_receive
+  })
+}

@@ -28,6 +28,32 @@ module "component" {
   app_lifecycle_hook_name = "${var.environment}-app-launch-hook"
 }
 
+module "scraper_async" {
+  source = "./modules/scraper_async"
+  count  = var.enable_scraper_async ? 1 : 0
+
+  environment             = var.environment
+  name_prefix             = var.scraper_async.name_prefix
+  ecs_cluster_arn         = var.scraper_async.ecs_cluster_arn
+  ecs_task_definition_arn = var.scraper_async.ecs_task_definition_arn
+  ecs_task_role_arns      = var.scraper_async.ecs_task_role_arns
+  subnet_ids              = var.scraper_async.subnet_ids
+  security_group_ids      = var.scraper_async.security_group_ids
+  assign_public_ip        = var.scraper_async.assign_public_ip
+}
+
+module "backend_serverless" {
+  source = "./modules/backend_serverless"
+  count  = var.enable_backend_serverless ? 1 : 0
+
+  environment             = var.environment
+  app_name                = var.backend_serverless.app_name
+  lambda_package_path     = var.backend_serverless.lambda_package_path
+  lambda_environment      = var.backend_serverless.lambda_environment
+  provisioned_concurrency = var.backend_serverless.provisioned_concurrency
+  create_async_queue      = var.backend_serverless.create_async_queue
+}
+
 # module "discord-bot" {
 #   source             = "./discord-bot/infra"
 #   count              = var.environment == "sandbox" ? 1 : 0

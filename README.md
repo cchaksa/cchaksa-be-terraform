@@ -31,6 +31,8 @@ Terraform Plan / Apply를 GitHub Actions로 자동화하여
 
 - **[SETUP.md](./SETUP.md)**  
   로컬 개발 환경 및 Terraform 실행 방법 정리
+- **[MIGRATION_RUNBOOK.md](./MIGRATION_RUNBOOK.md)**
+  스크래핑 선행/백엔드 후행 마이그레이션 절차 및 전환 게이트 정리
 
 ---
 

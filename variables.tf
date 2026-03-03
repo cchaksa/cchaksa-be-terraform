@@ -49,6 +49,67 @@ variable "app_service_name" {
   default     = "haksa"
 }
 
+# region 스크래핑 비동기 전환
+variable "enable_scraper_async" {
+  description = "스크래핑 비동기 인프라(SQS + EventBridge Pipe -> ECS RunTask) 활성화"
+  type        = bool
+  default     = false
+}
+
+variable "scraper_async" {
+  description = "스크래핑 비동기 모듈 최소 입력(필수 참조값만 관리)"
+  type = object({
+    ecs_cluster_arn         = string
+    ecs_task_definition_arn = string
+    ecs_task_role_arns      = list(string)
+    subnet_ids              = list(string)
+    security_group_ids      = list(string)
+    name_prefix             = string
+    assign_public_ip        = string
+  })
+  default = {
+    ecs_cluster_arn         = ""
+    ecs_task_definition_arn = ""
+    ecs_task_role_arns      = []
+    subnet_ids              = []
+    security_group_ids      = []
+    name_prefix             = ""
+    assign_public_ip        = "ENABLED"
+  }
+
+  validation {
+    condition     = var.scraper_async.assign_public_ip == "ENABLED" || var.scraper_async.assign_public_ip == "DISABLED"
+    error_message = "scraper_async.assign_public_ip must be ENABLED or DISABLED."
+  }
+}
+# endregion
+
+# region 백엔드 서버리스 전환
+variable "enable_backend_serverless" {
+  description = "백엔드 서버리스 인프라(API Gateway + Lambda) 활성화"
+  type        = bool
+  default     = false
+}
+
+variable "backend_serverless" {
+  description = "백엔드 서버리스 최소 입력(환경별 변경이 필요한 값만 관리)"
+  type = object({
+    app_name                = string
+    lambda_package_path     = string
+    lambda_environment      = map(string)
+    provisioned_concurrency = number
+    create_async_queue      = bool
+  })
+  default = {
+    app_name                = "haksa-serverless"
+    lambda_package_path     = ""
+    lambda_environment      = {}
+    provisioned_concurrency = 0
+    create_async_queue      = false
+  }
+}
+# endregion
+
 # # region Discord Bot 관련 변수
 # variable "discord_public_key" {
 #   description = "Discord Bot Public Key"
