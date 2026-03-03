@@ -1,0 +1,55 @@
+# AGENTS.md
+
+이 문서는 이 저장소의 통합 지침서다. 아래 규칙은 작업 시 강제 적용한다.
+
+## 1. 기본 원칙
+- 운영 영향 최소화: 병행 구축, 점진 전환, 즉시 롤백 가능 상태 유지
+- shadow 테스트 리소스 접두어는 `develop-shadow`로 고정
+- 운영 반영은 검증 게이트를 통과한 경우에만 수행
+
+## 2. 현재/목표 구조
+- 현재 백엔드 구조: `EC2 + ASG(min=1) + ALB`
+- 현재 스크래핑 구조: `ECS Fargate Service(상시) + ALB`
+- 목표 스크래핑 구조: `Backend API -> SQS -> ECS RunTask(Fargate) -> Backend Result API -> DB`
+- 목표 백엔드 구조: `API Gateway + Lambda (+ 필요 시 SQS)`
+
+## 3. 모듈 구조
+- `component/`: 기존 운영 인프라 모듈
+- `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask 연동)
+- `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
+- 스크래핑 모듈 입력 원칙:
+  - 루트 변수 `scraper_async` 객체 1개로 최소 필수값만 전달
+  - 큐 이름/리텐션/배치/pipe 상태 등은 모듈 내부 기본값 사용
+- 백엔드 서버리스 입력 원칙:
+  - 루트 변수 `backend_serverless` 객체 1개로 최소 필수값만 전달
+  - runtime/handler/memory/timeout/async 큐 정책값은 모듈 내부 기본값 사용
+
+## 4. 브랜치/커밋/PR 규칙
+- 브랜치 규칙: `feat/<번호>`
+- 커밋 메시지 규칙: `'<번호> <type>: <한글 메시지>'`
+- PR 작성 시 프로젝트 PR 템플릿이 있으면 반드시 따름
+- PR 필수 포함 항목:
+  - 변경 요약
+  - 영향 범위
+  - 롤백 방법
+  - 검증 증적(plan/log/테스트 결과)
+  - 관련 context 파일 경로
+  - `AGENTS.md 업데이트 필요 여부` 체크 결과
+
+## 5. 작업 규칙
+- 운영 리소스 직접 수정 금지(병행 리소스 생성 후 전환)
+- 예상치 못한 변경 발견 시 즉시 중단 후 공유
+- 모든 작업은 double check 수행(포맷/검증/영향 확인)
+
+## 6. Context 문서 규칙
+- 컨텍스트 메타 규칙은 `docs/CONTEXT.md`를 따른다.
+- 작업 기록은 반드시 `docs/{작업명}-context.md` 파일에 작성한다.
+- 파일명은 kebab-case 권장 (예: `scraper-async-migration-context.md`)
+
+## 7. AGENTS.md 갱신 의무
+- 변경 사항이 생기면 `AGENTS.md`를 즉시 업데이트한다.
+- 적용 조건:
+  - As-Is/To-Be 구조 변경
+  - 모듈/디렉터리 구조 변경
+  - 브랜치/커밋/PR 규칙 변경
+  - 운영 전환/롤백/검증 기준 변경
