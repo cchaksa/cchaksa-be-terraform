@@ -1,8 +1,9 @@
 locals {
-  name_prefix = trimspace(var.name_prefix) != "" ? var.name_prefix : "${var.environment}-shadow-scraper"
-  queue_name  = "${local.name_prefix}-jobs"
-  dlq_name    = "${local.name_prefix}-jobs-dlq"
-  ecr_name    = "${local.name_prefix}-worker"
+  name_prefix                 = trimspace(var.name_prefix) != "" ? var.name_prefix : "${var.environment}-shadow-scraper"
+  queue_name                  = "${local.name_prefix}-jobs"
+  dlq_name                    = "${local.name_prefix}-jobs-dlq"
+  ecr_name                    = "${local.name_prefix}-worker"
+  ecs_task_definition_pattern = replace(var.ecs_task_definition_arn, "/:[0-9]+$/", ":*")
 }
 
 resource "aws_ecr_repository" "worker" {
@@ -107,7 +108,7 @@ data "aws_iam_policy_document" "pipe_policy" {
   statement {
     effect    = "Allow"
     actions   = ["ecs:RunTask"]
-    resources = [var.ecs_task_definition_arn]
+    resources = [local.ecs_task_definition_pattern]
   }
 
   statement {
@@ -154,5 +155,12 @@ resource "aws_pipes_pipe" "scraper_jobs_to_ecs" {
       enable_ecs_managed_tags = true
       propagate_tags          = "TASK_DEFINITION"
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      target_parameters[0].ecs_task_parameters[0].task_definition_arn,
+      target_parameters[0].ecs_task_parameters[0].overrides,
+    ]
   }
 }

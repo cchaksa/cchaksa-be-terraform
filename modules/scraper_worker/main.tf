@@ -26,6 +26,20 @@ data "aws_iam_policy_document" "task_assume_role" {
   }
 }
 
+data "aws_iam_policy_document" "execution_secret_access" {
+  count = length(var.task_secrets) > 0 ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "secretsmanager:DescribeSecret",
+      "ssm:GetParameters"
+    ]
+    resources = values(var.task_secrets)
+  }
+}
+
 resource "aws_iam_role" "execution" {
   name               = "${var.name_prefix}-worker-exec-role"
   assume_role_policy = data.aws_iam_policy_document.task_assume_role.json
@@ -38,6 +52,14 @@ resource "aws_iam_role" "execution" {
 resource "aws_iam_role_policy_attachment" "execution_basic" {
   role       = aws_iam_role.execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role_policy" "execution_secret_access" {
+  count = length(var.task_secrets) > 0 ? 1 : 0
+
+  name   = "${var.name_prefix}-worker-secret-access"
+  role   = aws_iam_role.execution.id
+  policy = data.aws_iam_policy_document.execution_secret_access[0].json
 }
 
 resource "aws_iam_role" "task" {
