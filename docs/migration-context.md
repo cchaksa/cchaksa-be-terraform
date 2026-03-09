@@ -63,8 +63,10 @@
   - 재시도/DLQ/visibility timeout 기반 복구
   - 기존 경로 병행 유지 후 점진 전환
 - 2단계(백엔드):
-  - `API Gateway + Lambda (+ 필요 시 SQS)`
-  - 지연 민감 API는 Provisioned Concurrency(필요 시간대만), 일반 API는 경량화 중심
+  - `API Gateway HTTP API + Lambda(Java 17, arm64, alias=live) (+ 필요 시 SQS)`
+  - Lambda는 Supabase 외부 연결 기준 비VPC 유지
+  - `dev.api.cchaksa.com -> API Gateway custom domain`으로 shadow 접근 경로 고정
+  - 지연 민감 API는 Provisioned Concurrency(필요 시간대만), 기본은 SnapStart 중심
 
 ## 사전 작업 체크리스트(공통)
 - `develop-shadow-*` 네이밍 및 태그(`Environment=develop-shadow`) 고정
@@ -86,6 +88,7 @@
 - API Gateway 도메인/경로 전략 확정(기존 계약 호환)
 - Provisioned Concurrency 적용 시간대 정책 확정
 - 비동기 보조 큐 사용 여부 확정
+- 백엔드 애플리케이션 Lambda 핸들러/패키징 방식 확정
 
 ## 신규 인프라 목록(단계별)
 1. 스크래핑 1단계
@@ -101,7 +104,9 @@
 - API Gateway HTTP API: 이미 코드화됨 (`modules/backend_serverless`)
 - Lambda IAM Role/기본 로그: 이미 코드화됨 (`modules/backend_serverless`)
 - optional async SQS/DLQ: 이미 코드화됨 (`modules/backend_serverless`)
-- 도메인 연결/경로 라우팅: 추가 필요(운영 라우팅 정책)
+- API Gateway custom domain/API mapping: 이미 코드화됨 (`modules/backend_serverless`)
+- Lambda artifact S3 bucket/object: 이미 코드화됨 (`modules/backend_serverless`)
+- Cloudflare CNAME 반영: 추가 필요(도메인 운영 반영)
 
 ## 작업 순서(실행 순서 고정)
 1. 기준선 측정
@@ -308,6 +313,43 @@
     - 사용자명: `develop-shadow-scraper-github-actions`
     - 용도: 스크래핑 리포 CI의 shadow 배포(ECR push, ECS task definition 등록, Pipe 갱신)
     - 권한 범위: `develop-shadow-scraper-worker` ECR, `develop-shadow-scraper-jobs-to-ecs` Pipe, shadow worker role `iam:PassRole`, `ecs:RegisterTaskDefinition`, `ecs:DescribeTaskDefinition`
+  - shadow E2E 검증 중 발견된 수정사항:
+    - Pipe는 큐 메시지를 소비했지만 ECS task가 생성되지 않음
+    - 원인: `develop-shadow-scraper-pipe-role`의 `ecs:RunTask` 권한이 `develop-shadow-scraper-worker:1` revision에만 고정
+    - 조치: `modules/scraper_async`에서 Pipe IAM policy의 `ecs:RunTask` 리소스를 task definition family 전체 revision(`:*`) 패턴으로 변경
+    - 추가 조치: `aws_pipes_pipe`의 `task_definition_arn`과 `overrides`는 스크래핑 리포 CI가 관리하므로 Terraform `ignore_changes`로 drift를 무시
+    - 기대 효과: 스크래핑 리포 CI가 `register-task-definition`으로 revision을 올려도 Terraform 재적용 없이 Pipe가 최신 revision 실행 가능
+  - shadow task 기동 검증 중 추가 수정사항:
+    - ECS task는 생성됐지만 `TaskFailedToStart`로 종료
+    - 원인: `develop-shadow-scraper-worker-exec-role`에 `SCRAPE_CALLBACK_HMAC_SECRET` 조회 권한 부재
+    - 조치: `modules/scraper_worker`에서 `task_secrets` 사용 시 execution role에 `secretsmanager:GetSecretValue`, `secretsmanager:DescribeSecret`, `ssm:GetParameters` 권한을 해당 secret ARN에 부여
+  - 백엔드 서버리스 shadow 구조 반영:
+    - `modules/backend_serverless`에 Lambda SnapStart(`PublishedVersions`) 추가
+    - API Gateway HTTP API custom domain, API mapping, regional target output 추가
+    - Lambda jar 크기가 직접 업로드 한도를 넘으므로 전용 S3 artifact bucket/object를 통해 배포하도록 보강
+    - 루트 `backend_serverless` 객체에 `custom_domain_name`, `certificate_arn` 입력 추가
+    - `tfvars/develop-shadow.tfvars`에 `enable_backend_serverless=true` 반영
+    - `dev.api.cchaksa.com`과 ACM 인증서 ARN을 shadow 서버리스 입력으로 고정
+    - Lambda 패키지 경로는 인접 백엔드 저장소의 Lambda 전용 산출물 `../haksa/build/distributions/haksa-lambda.zip`을 참조
+    - Lambda는 Supabase 외부 연결 기준으로 비VPC 유지
+  - 백엔드 애플리케이션 shadow 검증에서 확인한 필수 변경사항:
+    - 인접 백엔드 저장소(`../haksa`)에는 별도 브랜치에서 아래 변경이 필요함
+    - Lambda 전용 핸들러 `com.chukchuk.haksa.global.lambda.StreamLambdaHandler`
+    - `aws-serverless-java-container-springboot3`, `aws-lambda-java-core` 의존성
+    - `lambdaZip` task 및 클래스 루트 + `lib/` 의존성 구조 패키징
+    - `develop-shadow -> dev` profile group
+    - `LOG_PATH`, `LOG_FILE_NAME` 환경변수 기반 Logback 설정
+  - 백엔드 서버리스 apply/런타임 검증 기록(임시 검증 결과):
+    - 초기 direct upload는 Lambda `413 RequestEntityTooLarge`로 실패하여 S3 artifact 배포 경로로 전환
+    - published version 1, 2는 bootJar/classpath 문제로 핸들러 클래스를 로드하지 못해 실패
+    - published version 3은 Logback가 `/var/log/app`를 요구해 초기화 실패
+    - published version 4, 5는 reactive management security와 MVC security 충돌로 실패
+    - Lambda 애플리케이션 쪽에서 `spring.main.web-application-type=servlet` 강제가 필요함을 확인
+    - 최신 published version 6은 Spring/JPA 초기화까지 진입했으나 `DEV_DB_*` 자격증명으로 Supabase 인증 실패(`FATAL: Tenant or user not found`)
+    - 현재 `live` alias는 여전히 version `2`를 가리키며, shadow 백엔드 cutover는 보류 상태
+  - 현재 제한사항:
+    - 백엔드 앱 저장소 변경은 아직 별도 브랜치에 정식 반영되지 않았음
+    - 유효한 `DEV_DB_URL/DEV_DB_USERNAME/DEV_DB_PASSWORD`가 확보되기 전까지 shadow 백엔드는 정상 기동할 수 없음
 
 ## 검증 결과
 - 문서 규칙 검증:

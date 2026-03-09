@@ -28,11 +28,17 @@
   - `enable_scraper_async=true`일 때 필수 참조값(Cluster/TaskDefinition/Role/Subnet/SG/Prefix) 누락 금지
 - 워커 시크릿 입력 원칙:
   - `scraper_worker.task_secrets`로 ECS container secrets(`name` -> `valueFrom ARN`)를 주입
+  - `task_secrets`를 사용할 때 execution role에 해당 secret ARN에 대한 읽기 권한(`secretsmanager:GetSecretValue` 또는 `ssm:GetParameters`)이 함께 부여되어야 한다
 - 스크래핑 코드 재배포 시 이미지 갱신은 스크래핑 리포지토리 CI에서 `register-task-definition` + `update-pipe`로 처리하고, Terraform apply는 인프라 변경 시에만 수행
+- Pipe IAM 정책의 `ecs:RunTask` 리소스는 특정 revision이 아니라 task definition family 전체 revision(`:*`)을 허용해야 한다
+- `aws_pipes_pipe`의 최신 `task_definition_arn`과 container override(`SQS_MESSAGE_BODY`, `SQS_MESSAGE_ID`)는 CI가 관리하므로 Terraform은 drift를 무시해야 한다
 - 백엔드 서버리스 입력 원칙:
   - 루트 변수 `backend_serverless` 객체 1개로 최소 필수값만 전달
   - runtime/handler/memory/timeout/async 큐 정책값은 모듈 내부 기본값 사용
-  - `enable_backend_serverless=true`일 때 `app_name`, `lambda_package_path` 누락 금지
+  - `enable_backend_serverless=true`일 때 `app_name`, `lambda_package_path`, `custom_domain_name`, `certificate_arn` 누락 금지
+  - Supabase 외부 연결 기준으로 Lambda는 기본적으로 VPC에 넣지 않는다
+  - `modules/backend_serverless`는 SnapStart, API Gateway custom domain, API mapping을 기본 지원한다
+  - Lambda 패키지가 직접 업로드 한도를 넘는 경우를 대비해 `modules/backend_serverless`는 전용 S3 artifact bucket/object를 통해 배포한다
 
 ## 4. 브랜치/커밋/PR 규칙
 - 브랜치 규칙: `feat/<번호>`
