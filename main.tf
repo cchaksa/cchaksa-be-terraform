@@ -15,10 +15,16 @@ provider "aws" {
   region  = var.aws_region
 }
 
+moved {
+  from = module.component
+  to   = module.component[0]
+}
+
 module "component" {
+  count                   = var.environment == "develop-shadow" || (var.environment == "develop" && !var.enable_develop) ? 0 : 1
   source                  = "./component"
   environment             = var.environment
-  enable                  = var.environment == "develop" ? var.enable_develop : true
+  enable                  = contains(["develop", "develop-shadow"], var.environment) ? var.enable_develop : true
   app_ami_id              = var.app_ami_id
   app_port                = var.app_port
   app_health_path         = var.app_health_path
@@ -39,6 +45,7 @@ module "scraper_worker" {
   cpu                   = var.scraper_worker.cpu
   memory                = var.scraper_worker.memory
   task_environment      = var.scraper_worker.task_environment
+  task_secrets          = var.scraper_worker.task_secrets
   task_command          = var.scraper_worker.task_command
   log_retention_in_days = var.scraper_worker.log_retention_in_days
   task_role_policy_arns = var.scraper_worker.task_role_policy_arns

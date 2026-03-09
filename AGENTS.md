@@ -20,11 +20,15 @@
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
 - `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
 - `tfvars/develop-shadow.tfvars`: develop-shadow 적용 전용 변수 파일
+- shadow 상태를 사용할 때는 `environment=develop-shadow`, `enable_develop=false`로 설정하고 루트에서 `module.component`를 비활성화한다
 - 스크래핑 모듈 입력 원칙:
   - 루트 변수 `scraper_async` 객체 1개로 최소 필수값만 전달
   - 워커 리소스 자동 생성 시 루트 변수 `scraper_worker` 객체 사용
   - 큐 이름/리텐션/배치/pipe 상태 등은 모듈 내부 기본값 사용
   - `enable_scraper_async=true`일 때 필수 참조값(Cluster/TaskDefinition/Role/Subnet/SG/Prefix) 누락 금지
+- 워커 시크릿 입력 원칙:
+  - `scraper_worker.task_secrets`로 ECS container secrets(`name` -> `valueFrom ARN`)를 주입
+- 스크래핑 코드 재배포 시 이미지 갱신은 스크래핑 리포지토리 CI에서 `register-task-definition` + `update-pipe`로 처리하고, Terraform apply는 인프라 변경 시에만 수행
 - 백엔드 서버리스 입력 원칙:
   - 루트 변수 `backend_serverless` 객체 1개로 최소 필수값만 전달
   - runtime/handler/memory/timeout/async 큐 정책값은 모듈 내부 기본값 사용

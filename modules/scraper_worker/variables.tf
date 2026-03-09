@@ -29,6 +29,11 @@ variable "task_environment" {
   default = {}
 }
 
+variable "task_secrets" {
+  type    = map(string)
+  default = {}
+}
+
 variable "task_command" {
   type    = list(string)
   default = []

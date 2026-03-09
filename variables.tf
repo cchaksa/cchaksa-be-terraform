@@ -1,11 +1,11 @@
 variable "environment" {
-  description = "Deployment environment (develop || prod)"
+  description = "Deployment environment (develop || develop-shadow || prod)"
   type        = string
   default     = "develop"
 
   validation {
-    condition     = var.environment == "develop" || var.environment == "prod"
-    error_message = "environment must be either 'develop' or 'prod'."
+    condition     = contains(["develop", "develop-shadow", "prod"], var.environment)
+    error_message = "environment must be either 'develop', 'develop-shadow', or 'prod'."
   }
 }
 
@@ -70,6 +70,7 @@ variable "scraper_worker" {
     cpu                   = number
     memory                = number
     task_environment      = map(string)
+    task_secrets          = map(string)
     task_command          = list(string)
     log_retention_in_days = number
     task_role_policy_arns = list(string)
@@ -80,6 +81,7 @@ variable "scraper_worker" {
     cpu                   = 1024
     memory                = 2048
     task_environment      = {}
+    task_secrets          = {}
     task_command          = []
     log_retention_in_days = 30
     task_role_policy_arns = []

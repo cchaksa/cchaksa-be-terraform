@@ -86,6 +86,12 @@ resource "aws_ecs_task_definition" "worker" {
           value = v
         }
       ]
+      secrets = [
+        for k, v in var.task_secrets : {
+          name      = k
+          valueFrom = v
+        }
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
