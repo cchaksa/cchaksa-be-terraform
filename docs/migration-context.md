@@ -263,11 +263,51 @@
   - 스크래핑 워커 인프라 자동 생성 경로 추가:
     - `enable_scraper_worker_infra=true` 시 ECS Cluster/TaskDefinition/IAM/Logs 생성
     - `enable_scraper_async` 모듈과 워커 모듈 연동(수동 ARN 주입 최소화)
+  - 운영값 고정 반영:
+    - `tfvars/prod.tfvars`에 scraper async/worker 활성값 및 subnet/sg/name_prefix 반영
+    - 워커 런타임 env/secret 템플릿(`SCRAPE_CALLBACK_*`, timeout, graceful shutdown) 반영
+  - 워커 시크릿 주입 경로 추가:
+    - `modules/scraper_worker`에 `task_secrets` 추가(ECS container secrets)
+  - 제한사항 확인:
+    - Terraform `aws_pipes_pipe` ECS 파라미터에서 task override/env 주입 블록 미지원(현재 provider 스키마 기준)
+  - 배포 전략 확정:
+    - 스크래핑 코드 재배포는 스크래핑 리포지토리 CI에서 처리(`ECR push -> ECS register-task-definition -> EventBridge Pipe update`)
+    - Terraform apply는 인프라 구조 변경 시에만 수행
   - 운영 Launch Template 드리프트 비노출 정책 채택:
     - 대상: `component/launch-template.tf`의 `aws_launch_template.app`
     - 변경: `lifecycle.ignore_changes = all`
     - 이유: 운영 AMI/LT는 콘솔 수동 변경을 허용하고 plan 노이즈를 제거하기 위함
     - 영향: LT 관련 코드 변경(`instance_type`, `user_data`, `network_interfaces` 포함)은 Terraform apply로 반영되지 않음
+- 2026-03-10:
+  - `develop-shadow` 스크래핑 테스트값 고정:
+    - `environment=develop-shadow`, `enable_develop=false`로 shadow 상태에서 기존 `component` 스택 생성을 차단
+    - 루트 `module.component`를 count 기반으로 비활성화해 shadow에서 ALB/ASG/VPC가 함께 생성되지 않도록 수정
+    - `tfvars/develop-shadow.tfvars`에서 `enable_scraper_async=true`
+    - `subnet_ids`, `security_group_ids`는 운영 VPC 공용 값 사용
+    - 워커 런타임 env에 `WORKER_INPUT_MODE=pipe`, `SCRAPE_CALLBACK_BASE_URL=https://dev.api.cchaksa.com` 반영
+    - 워커 이미지 URI 기본값은 `develop-shadow-scraper-worker:bootstrap`으로 지정
+    - HMAC secret은 기존 운영 계정 secret ARN을 임시 공용 참조로 지정
+  - shadow 리소스 이름 기준 재확인:
+    - ECR: `develop-shadow-scraper-worker`
+    - Queue: `develop-shadow-scraper-jobs`
+    - Pipe: `develop-shadow-scraper-jobs-to-ecs`
+    - Cluster: `develop-shadow-scraper-cluster`
+    - Task Family: `develop-shadow-scraper-worker`
+    - Log Group: `/ecs/develop-shadow-scraper-worker`
+  - `prod-*` 비동기 리소스 선제 정리:
+    - `tfvars/prod.tfvars`에서 `enable_scraper_async=false`, `enable_scraper_worker_infra=false`로 변경
+    - `module.component -> module.component[0]` 주소 이동으로 인한 운영 스택 재생성 plan을 막기 위해 루트 `moved` 블록 추가
+    - `terraform apply -var-file=tfvars/prod.tfvars -auto-approve` 결과 `0 add / 0 change / 13 destroy`
+    - 제거 대상은 `prod-scraper-*` 비동기 리소스(ECR, SQS/DLQ, Pipe, ECS Cluster/TaskDefinition, worker IAM/Logs)로 한정
+    - 목적: shadow 테스트 전 `prod-*` 비동기 리소스와의 혼선 제거, 운영 미사용 리소스 정리
+  - `develop-shadow` shadow 리소스 배포 완료:
+    - `terraform apply -var-file=tfvars/develop-shadow.tfvars -auto-approve` 결과 `13 add / 0 change / 0 destroy`
+    - 생성 리소스: `develop-shadow-scraper-worker` ECR, `develop-shadow-scraper-jobs`, DLQ, Pipe, ECS Cluster, TaskDefinition, IAM role, 로그 그룹
+    - ECS task secret `SCRAPE_CALLBACK_HMAC_SECRET` 주입 확인
+  - 스크래핑 GitHub Actions용 IAM 사용자 생성:
+    - 사용자명: `develop-shadow-scraper-github-actions`
+    - 용도: 스크래핑 리포 CI의 shadow 배포(ECR push, ECS task definition 등록, Pipe 갱신)
+    - 권한 범위: `develop-shadow-scraper-worker` ECR, `develop-shadow-scraper-jobs-to-ecs` Pipe, shadow worker role `iam:PassRole`, `ecs:RegisterTaskDefinition`, `ecs:DescribeTaskDefinition`
 
 ## 검증 결과
 - 문서 규칙 검증:
