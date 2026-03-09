@@ -16,6 +16,16 @@ variable "lambda_environment" {
   default = {}
 }
 
+variable "custom_domain_name" {
+  type    = string
+  default = ""
+}
+
+variable "certificate_arn" {
+  type    = string
+  default = ""
+}
+
 variable "provisioned_concurrency" {
   type    = number
   default = 0

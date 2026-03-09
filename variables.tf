@@ -169,6 +169,8 @@ variable "backend_serverless" {
     app_name                = string
     lambda_package_path     = string
     lambda_environment      = map(string)
+    custom_domain_name      = string
+    certificate_arn         = string
     provisioned_concurrency = number
     create_async_queue      = bool
   })
@@ -176,6 +178,8 @@ variable "backend_serverless" {
     app_name                = "haksa-serverless"
     lambda_package_path     = ""
     lambda_environment      = {}
+    custom_domain_name      = ""
+    certificate_arn         = ""
     provisioned_concurrency = 0
     create_async_queue      = false
   }
@@ -183,9 +187,11 @@ variable "backend_serverless" {
   validation {
     condition = !var.enable_backend_serverless || (
       trimspace(var.backend_serverless.app_name) != "" &&
-      trimspace(var.backend_serverless.lambda_package_path) != ""
+      trimspace(var.backend_serverless.lambda_package_path) != "" &&
+      trimspace(var.backend_serverless.custom_domain_name) != "" &&
+      trimspace(var.backend_serverless.certificate_arn) != ""
     )
-    error_message = "enable_backend_serverless=true 인 경우 backend_serverless.app_name, backend_serverless.lambda_package_path를 설정해야 한다."
+    error_message = "enable_backend_serverless=true 인 경우 backend_serverless.app_name, lambda_package_path, custom_domain_name, certificate_arn를 설정해야 한다."
   }
 }
 # endregion

@@ -25,3 +25,19 @@ output "backend_serverless_api_endpoint" {
 output "backend_serverless_lambda_name" {
   value = var.enable_backend_serverless ? module.backend_serverless[0].lambda_function_name : null
 }
+
+output "backend_serverless_lambda_alias_name" {
+  value = var.enable_backend_serverless ? module.backend_serverless[0].lambda_alias_name : null
+}
+
+output "backend_serverless_custom_domain_name" {
+  value = var.enable_backend_serverless ? module.backend_serverless[0].custom_domain_name : null
+}
+
+output "backend_serverless_custom_domain_target_domain_name" {
+  value = var.enable_backend_serverless ? module.backend_serverless[0].custom_domain_target_domain_name : null
+}
+
+output "backend_serverless_custom_domain_hosted_zone_id" {
+  value = var.enable_backend_serverless ? module.backend_serverless[0].custom_domain_hosted_zone_id : null
+}
