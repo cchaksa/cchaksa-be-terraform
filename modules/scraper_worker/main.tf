@@ -4,6 +4,8 @@ locals {
   log_group    = "/ecs/${var.name_prefix}-worker"
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_ecs_cluster" "this" {
   name = local.cluster_name
 
@@ -33,10 +35,19 @@ data "aws_iam_policy_document" "execution_secret_access" {
     effect = "Allow"
     actions = [
       "secretsmanager:GetSecretValue",
-      "secretsmanager:DescribeSecret",
-      "ssm:GetParameters"
+      "secretsmanager:DescribeSecret"
     ]
     resources = values(var.task_secrets)
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameters"
+    ]
+    resources = [
+      "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+    ]
   }
 }
 

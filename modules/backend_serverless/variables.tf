@@ -16,6 +16,21 @@ variable "lambda_environment" {
   default = {}
 }
 
+variable "scraping_job_queue_url" {
+  type    = string
+  default = ""
+}
+
+variable "scraping_job_queue_arn" {
+  type    = string
+  default = ""
+}
+
+variable "scraping_callback_hmac_secret_arn" {
+  type    = string
+  default = ""
+}
+
 variable "custom_domain_name" {
   type    = string
   default = ""

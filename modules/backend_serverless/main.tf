@@ -8,12 +8,27 @@ locals {
   artifact_bucket_name = "cck-${var.environment}-${substr(md5(var.app_name), 0, 8)}-lambda-${data.aws_caller_identity.current.account_id}"
   artifact_object_key  = "packages/${filemd5(var.lambda_package_path)}-${basename(var.lambda_package_path)}"
 
-  async_queue_visibility_secs = 120
-  async_queue_retention_secs  = 345600
-  async_queue_max_receive     = 5
+  async_queue_visibility_secs   = 120
+  async_queue_retention_secs    = 345600
+  async_queue_max_receive       = 5
+  scraping_callback_hmac_secret = trimspace(var.scraping_callback_hmac_secret_arn) != "" ? nonsensitive(data.aws_secretsmanager_secret_version.scraping_callback_hmac_secret[0].secret_string) : null
+  lambda_environment = merge(
+    var.lambda_environment,
+    trimspace(var.scraping_job_queue_url) != "" ? {
+      SCRAPING_JOB_QUEUE_URL = var.scraping_job_queue_url
+    } : {},
+    local.scraping_callback_hmac_secret != null ? {
+      SCRAPING_CALLBACK_HMAC_SECRET = local.scraping_callback_hmac_secret
+    } : {}
+  )
 }
 
 data "aws_caller_identity" "current" {}
+
+data "aws_secretsmanager_secret_version" "scraping_callback_hmac_secret" {
+  count     = trimspace(var.scraping_callback_hmac_secret_arn) != "" ? 1 : 0
+  secret_id = var.scraping_callback_hmac_secret_arn
+}
 
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
@@ -40,6 +55,29 @@ resource "aws_iam_role" "lambda_exec" {
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "aws_iam_policy_document" "lambda_scraping_queue_access" {
+  count = trimspace(var.scraping_job_queue_arn) != "" ? 1 : 0
+
+  statement {
+    sid    = "AllowScrapingQueueSend"
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage",
+      "sqs:GetQueueAttributes",
+      "sqs:GetQueueUrl"
+    ]
+    resources = [var.scraping_job_queue_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_scraping_queue_access" {
+  count = trimspace(var.scraping_job_queue_arn) != "" ? 1 : 0
+
+  name   = "${var.environment}-${var.app_name}-sqs-send"
+  role   = aws_iam_role.lambda_exec.id
+  policy = data.aws_iam_policy_document.lambda_scraping_queue_access[0].json
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
@@ -113,7 +151,7 @@ resource "aws_lambda_function" "backend" {
   }
 
   environment {
-    variables = var.lambda_environment
+    variables = local.lambda_environment
   }
 
   depends_on = [

@@ -166,22 +166,28 @@ variable "enable_backend_serverless" {
 variable "backend_serverless" {
   description = "백엔드 서버리스 최소 입력(환경별 변경이 필요한 값만 관리)"
   type = object({
-    app_name                = string
-    lambda_package_path     = string
-    lambda_environment      = map(string)
-    custom_domain_name      = string
-    certificate_arn         = string
-    provisioned_concurrency = number
-    create_async_queue      = bool
+    app_name                          = string
+    lambda_package_path               = string
+    lambda_environment                = map(string)
+    scraping_job_queue_url            = string
+    scraping_job_queue_arn            = string
+    scraping_callback_hmac_secret_arn = string
+    custom_domain_name                = string
+    certificate_arn                   = string
+    provisioned_concurrency           = number
+    create_async_queue                = bool
   })
   default = {
-    app_name                = "haksa-serverless"
-    lambda_package_path     = ""
-    lambda_environment      = {}
-    custom_domain_name      = ""
-    certificate_arn         = ""
-    provisioned_concurrency = 0
-    create_async_queue      = false
+    app_name                          = "haksa-serverless"
+    lambda_package_path               = ""
+    lambda_environment                = {}
+    scraping_job_queue_url            = ""
+    scraping_job_queue_arn            = ""
+    scraping_callback_hmac_secret_arn = ""
+    custom_domain_name                = ""
+    certificate_arn                   = ""
+    provisioned_concurrency           = 0
+    create_async_queue                = false
   }
 
   validation {

@@ -69,14 +69,17 @@ module "backend_serverless" {
   source = "./modules/backend_serverless"
   count  = var.enable_backend_serverless ? 1 : 0
 
-  environment             = var.environment
-  app_name                = var.backend_serverless.app_name
-  lambda_package_path     = var.backend_serverless.lambda_package_path
-  lambda_environment      = var.backend_serverless.lambda_environment
-  custom_domain_name      = var.backend_serverless.custom_domain_name
-  certificate_arn         = var.backend_serverless.certificate_arn
-  provisioned_concurrency = var.backend_serverless.provisioned_concurrency
-  create_async_queue      = var.backend_serverless.create_async_queue
+  environment                       = var.environment
+  app_name                          = var.backend_serverless.app_name
+  lambda_package_path               = var.backend_serverless.lambda_package_path
+  lambda_environment                = var.backend_serverless.lambda_environment
+  scraping_job_queue_url            = var.enable_scraper_async ? module.scraper_async[0].jobs_queue_url : var.backend_serverless.scraping_job_queue_url
+  scraping_job_queue_arn            = var.enable_scraper_async ? module.scraper_async[0].jobs_queue_arn : var.backend_serverless.scraping_job_queue_arn
+  scraping_callback_hmac_secret_arn = trimspace(var.backend_serverless.scraping_callback_hmac_secret_arn) != "" ? var.backend_serverless.scraping_callback_hmac_secret_arn : lookup(var.scraper_worker.task_secrets, "SCRAPE_CALLBACK_HMAC_SECRET", "")
+  custom_domain_name                = var.backend_serverless.custom_domain_name
+  certificate_arn                   = var.backend_serverless.certificate_arn
+  provisioned_concurrency           = var.backend_serverless.provisioned_concurrency
+  create_async_queue                = var.backend_serverless.create_async_queue
 }
 
 # module "discord-bot" {
