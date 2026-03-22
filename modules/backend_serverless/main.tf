@@ -130,6 +130,14 @@ resource "aws_s3_object" "lambda_package" {
   key    = local.artifact_object_key
   source = var.lambda_package_path
   etag   = filemd5(var.lambda_package_path)
+
+  lifecycle {
+    ignore_changes = [
+      key,
+      source,
+      etag
+    ]
+  }
 }
 
 resource "aws_lambda_function" "backend" {
@@ -154,6 +162,14 @@ resource "aws_lambda_function" "backend" {
     variables = local.lambda_environment
   }
 
+  lifecycle {
+    ignore_changes = [
+      source_code_hash,
+      s3_key,
+      s3_object_version
+    ]
+  }
+
   depends_on = [
     aws_cloudwatch_log_group.lambda,
     aws_s3_bucket_public_access_block.lambda_artifacts,
@@ -167,6 +183,12 @@ resource "aws_lambda_alias" "live" {
   description      = "Production-like alias for gradual cutover"
   function_name    = aws_lambda_function.backend.function_name
   function_version = aws_lambda_function.backend.version
+
+  lifecycle {
+    ignore_changes = [
+      function_version
+    ]
+  }
 }
 
 resource "aws_lambda_provisioned_concurrency_config" "live" {

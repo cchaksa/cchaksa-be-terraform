@@ -268,6 +268,30 @@
   - `modules/scraper_worker` execution secret access 정책을 분리
   - `secretsmanager:*`는 secret ARN에 한정
   - `ssm:GetParameters`는 ECS 초기화 단계에서 실제 평가되는 SSM 리소스 ARN 형식에 맞춰 `arn:aws:ssm:${region}:${account}:*` 범위 허용
+
+### 2026-03-22 - develop-shadow Lambda 실제 환경변수 코드화
+- 배경:
+  - `terraform plan -var-file=tfvars/develop-shadow.tfvars` 시 `module.backend_serverless[0].aws_lambda_function.backend`가 실제 Lambda env와 달라 대량 환경변수 삭제 drift를 표시
+  - 특히 `APP_KEY`, `APP_NATIVE_KEY`, `DEV_DB_*`, `JWT_*`, `REDIS_ENCRYPT_KEY` 등이 tfvars에 없어 apply 시 유실 위험이 있었음
+- 반영:
+  - `tfvars/develop-shadow.tfvars`의 `backend_serverless.lambda_environment`를 현재 `develop-shadow-develop-shadow-api` Lambda 설정 기준으로 보강
+  - `SCRAPING_JOB_QUEUE_URL`, `SCRAPING_CALLBACK_HMAC_SECRET`는 모듈의 자동 주입 경로를 유지하고 나머지 런타임 env만 명시
+- 기대 효과:
+  - develop-shadow plan/apply 시 실제 Lambda 환경변수 유실 방지
+  - Lambda env의 소스 오브 트루스를 tfvars로 정리
+
+### 2026-03-22 - develop-shadow Lambda 코드/alias drift 무시 정책 채택
+- 배경:
+  - 백엔드 저장소 CI가 `develop-shadow-develop-shadow-api` 코드를 직접 배포하면서 Lambda version, alias `live`, artifact object가 Terraform state와 분리됨
+  - 동일 시점에 Terraform apply를 수행하면 현재 정상 동작 중인 Lambda 코드가 로컬 패키지 기준 새 버전으로 다시 덮어써질 위험이 있었음
+- 반영:
+  - `modules/backend_serverless`에 lifecycle ignore 규칙 추가
+  - `aws_s3_object.lambda_package`: `key`, `source`, `etag`, `version_id` drift 무시
+  - `aws_lambda_function.backend`: `source_code_hash`, `s3_key`, `s3_object_version`, `last_modified`, `qualified_arn`, `qualified_invoke_arn`, `version` drift 무시
+  - `aws_lambda_alias.live`: `function_version` drift 무시
+- 운영 원칙:
+  - Lambda 코드는 백엔드 저장소 CI가 배포
+  - Terraform은 API Gateway, IAM, env, queue wiring 등 인프라 설정만 관리
 - 2026-03-03:
   - 마이그레이션 방향 확정: 스크래핑 선행, 백엔드 후행
   - shadow 네이밍 확정: `develop-shadow`
