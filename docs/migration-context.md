@@ -244,6 +244,30 @@
 - 롤백 목표시간: `5분 이내`
 
 ## 실행 로그
+
+### 2026-03-15 - develop-shadow 백엔드 스크래핑 enqueue 권한/환경변수 코드화
+- 배경:
+  - dev Lambda가 `POST /portal/link`에서 `SCRAPE_JOB_ENQUEUE_FAILED`로 종료
+  - 수동으로 넣은 `SCRAPING_JOB_QUEUE_URL`, `SCRAPING_CALLBACK_HMAC_SECRET`는 다음 Terraform apply 시 유실될 상태였음
+- 반영:
+  - `modules/backend_serverless`에 스크래핑 큐 URL/HMAC secret ARN 입력 추가
+  - Lambda environment에 `SCRAPING_JOB_QUEUE_URL`, `SCRAPING_CALLBACK_HMAC_SECRET` 자동 병합
+  - Lambda execution role에 대상 큐 `sqs:SendMessage`, `sqs:GetQueueAttributes`, `sqs:GetQueueUrl` 권한 추가
+  - 루트 모듈에서 `scraper_async` 출력(queue URL/ARN)과 `scraper_worker.task_secrets.SCRAPE_CALLBACK_HMAC_SECRET`를 `backend_serverless`로 자동 연결
+- 기대 효과:
+  - dev Lambda가 같은 계정의 `develop-shadow-scraper-jobs`로 직접 enqueue 가능
+  - 수동 설정 drift 없이 다음 apply 후에도 스크래핑 비동기 연동 설정 유지
+
+### 2026-03-15 - develop-shadow scraper worker execution role SSM 권한 보강
+- 배경:
+  - `job_id=e84d3040-490e-4b99-a8d2-72da944d1252` 처리 시 ECS task가 `ResourceInitializationError`로 시작 전 실패
+  - 원인 로그: `develop-shadow-scraper-worker-exec-role`에 `ssm:GetParameters` 권한이 없어서 secret 초기화 실패
+- 원인 상세:
+  - 기존 execution role 정책이 `ssm:GetParameters`를 포함하더라도 리소스가 Secrets Manager ARN 하나로 묶여 있어 실제 SSM ARN과 매칭되지 않았음
+- 반영:
+  - `modules/scraper_worker` execution secret access 정책을 분리
+  - `secretsmanager:*`는 secret ARN에 한정
+  - `ssm:GetParameters`는 ECS 초기화 단계에서 실제 평가되는 SSM 리소스 ARN 형식에 맞춰 `arn:aws:ssm:${region}:${account}:*` 범위 허용
 - 2026-03-03:
   - 마이그레이션 방향 확정: 스크래핑 선행, 백엔드 후행
   - shadow 네이밍 확정: `develop-shadow`

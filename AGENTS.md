@@ -39,6 +39,8 @@
   - Supabase 외부 연결 기준으로 Lambda는 기본적으로 VPC에 넣지 않는다
   - `modules/backend_serverless`는 SnapStart, API Gateway custom domain, API mapping을 기본 지원한다
   - Lambda 패키지가 직접 업로드 한도를 넘는 경우를 대비해 `modules/backend_serverless`는 전용 S3 artifact bucket/object를 통해 배포한다
+  - 스크래핑 비동기 백엔드 연동 시 `SCRAPING_JOB_QUEUE_URL`은 스크래핑 모듈 출력값을 우선 사용하고, Lambda role에는 대상 큐에 대한 `sqs:SendMessage/GetQueueAttributes/GetQueueUrl` 권한이 함께 부여되어야 한다
+  - `SCRAPING_CALLBACK_HMAC_SECRET`은 코드 저장소에 평문으로 두지 않고 Secrets Manager ARN을 통해 Lambda 환경변수로 주입한다
 
 ## 4. 브랜치/커밋/PR 규칙
 - 브랜치 규칙: `feat/<번호>`
