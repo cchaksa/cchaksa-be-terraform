@@ -70,7 +70,7 @@ set -a
 [ -f "$APP_ENV_FILE" ] && source "$APP_ENV_FILE"
 set +a
 cd $APP_DIR
-pkill -f 'java .*app.jar' || true
+pkill -f 'java .*app.jar --spring.profiles.active=' || true
 PROFILE="$${SPRING_PROFILES_ACTIVE:-${environment}}"
 nohup java -Xms1024m -Xmx1024m -XX:+UseG1GC -XX:MaxMetaspaceSize=256m -jar app.jar --spring.profiles.active="\$PROFILE" >> $NOHUP_LOG 2>&1 &
 STARTSCRIPT
