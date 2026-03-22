@@ -30,6 +30,6 @@ resource "aws_launch_template" "app" {
   }
 
   lifecycle {
-    ignore_changes = [image_id]
+    ignore_changes = all
   }
 }

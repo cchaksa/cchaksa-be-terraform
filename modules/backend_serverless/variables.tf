@@ -1,0 +1,52 @@
+variable "environment" {
+  type = string
+}
+
+variable "app_name" {
+  type    = string
+  default = "haksa-serverless"
+}
+
+variable "lambda_package_path" {
+  type = string
+}
+
+variable "lambda_environment" {
+  type    = map(string)
+  default = {}
+}
+
+variable "scraping_job_queue_url" {
+  type    = string
+  default = ""
+}
+
+variable "scraping_job_queue_arn" {
+  type    = string
+  default = ""
+}
+
+variable "scraping_callback_hmac_secret_arn" {
+  type    = string
+  default = ""
+}
+
+variable "custom_domain_name" {
+  type    = string
+  default = ""
+}
+
+variable "certificate_arn" {
+  type    = string
+  default = ""
+}
+
+variable "provisioned_concurrency" {
+  type    = number
+  default = 0
+}
+
+variable "create_async_queue" {
+  type    = bool
+  default = false
+}
