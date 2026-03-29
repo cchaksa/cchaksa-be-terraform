@@ -64,6 +64,7 @@
   - 원인은 Lambda idle 구간에서 gauge 샘플이 끊기는데, 해당 패널들이 raw metric 또는 짧은 현재 시점 평가를 사용하고 있었기 때문이다.
   - stack service account token을 사용해 `jvm-micrometer-4701` version `5`를 저장했고, 메모리/메모리 풀/버퍼/스레드/CPU/Load 패널을 `last_over_time(...[24h])` 기반으로 수정했다.
   - heap/nonheap 반복 패널에는 `area` 필터를 명시해 pool 라벨 선택과 쿼리 범위를 일치시켰다.
+  - 추가 점검 결과 백엔드 `application.yml`의 `management.otlp.metrics.export.enabled`는 `MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED` env가 있어야 활성화되므로, Lambda env에 `"true"`를 명시적으로 주입하도록 IAC를 보강했다.
 
 ## 검증 결과
 - 2026-03-28 Asia/Seoul / local
@@ -80,6 +81,7 @@
   - Prometheus query API로 `sum(increase(http_server_requests_milliseconds_count[6h]))`, `sum by (level) (increase(logback_events_total[6h]))`, `last_over_time(hikaricp_connections[24h])`가 빈 시계열 대신 값 또는 `0`으로 반환되는 것 확인
   - 추가 보정 후 Grafana HTTP API 재조회 기준 `jvm-micrometer-4701` version `5` 확인
   - Grafana datasource query API로 `sum(last_over_time(jvm_memory_used_bytes{area="heap"}[24h]))`, `last_over_time(jvm_memory_used_bytes{area="heap",id=~".*"}[24h])`, `sum(last_over_time(jvm_buffer_memory_used_bytes[24h]))`, `last_over_time(jvm_threads_states[24h])`, `last_over_time(process_cpu_usage[24h])`가 모두 frame을 반환하는 것 확인
+  - IAC 코드 재점검으로 Lambda env에 `MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED=true`가 포함되도록 수정한 것 확인
   - Loki query API로 `{service_name="develop-shadow-api"}` 로그 스트림 조회 결과 존재 확인
   - CloudWatch datasource resource API로 `AWS/Lambda`, `AWS/SQS`, `AWS/ApplicationELB`, `AWS/ApiGateway` 네임스페이스/차원값 조회 성공
   - CloudWatch datasource `GET /api/datasources/uid/aws-cloudwatch-prod-cchaksa`: `authType=grafana_assume_role`, `assumeRoleArn` 반영 및 `secureJsonFields={}` 확인

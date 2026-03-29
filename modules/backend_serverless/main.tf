@@ -24,16 +24,17 @@ locals {
       SCRAPING_CALLBACK_HMAC_SECRET = local.scraping_callback_hmac_secret
     } : {},
     local.grafana_cloud_enabled ? {
-      GRAFANA_CLOUD_INSTANCE_ID           = var.grafana_cloud.instance_id
-      GRAFANA_CLOUD_OTLP_ENDPOINT         = var.grafana_cloud.otlp_endpoint
-      GRAFANA_CLOUD_API_KEY_ARN           = var.grafana_cloud.api_key_secret_arn
-      OTEL_SERVICE_NAME                   = local.grafana_cloud_service_name
-      OTEL_RESOURCE_ATTRIBUTES            = "deployment.environment=${var.environment}"
-      OTEL_EXPORTER_OTLP_ENDPOINT         = "http://localhost:4318"
-      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "http://localhost:4318/v1/metrics"
-      OTEL_EXPORTER_OTLP_PROTOCOL         = "http/protobuf"
-      MANAGEMENT_OTLP_TRACING_ENDPOINT    = "http://localhost:4318/v1/traces"
-      MANAGEMENT_OTLP_METRICS_EXPORT_URL  = "http://localhost:4318/v1/metrics"
+      GRAFANA_CLOUD_INSTANCE_ID              = var.grafana_cloud.instance_id
+      GRAFANA_CLOUD_OTLP_ENDPOINT            = var.grafana_cloud.otlp_endpoint
+      GRAFANA_CLOUD_API_KEY_ARN              = var.grafana_cloud.api_key_secret_arn
+      OTEL_SERVICE_NAME                      = local.grafana_cloud_service_name
+      OTEL_RESOURCE_ATTRIBUTES               = "deployment.environment=${var.environment}"
+      OTEL_EXPORTER_OTLP_ENDPOINT            = "http://localhost:4318"
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT    = "http://localhost:4318/v1/metrics"
+      OTEL_EXPORTER_OTLP_PROTOCOL            = "http/protobuf"
+      MANAGEMENT_OTLP_TRACING_ENDPOINT       = "http://localhost:4318/v1/traces"
+      MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED = "true"
+      MANAGEMENT_OTLP_METRICS_EXPORT_URL     = "http://localhost:4318/v1/metrics"
     } : {}
   )
 }
