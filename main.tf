@@ -80,6 +80,7 @@ module "backend_serverless" {
   certificate_arn                   = var.backend_serverless.certificate_arn
   provisioned_concurrency           = var.backend_serverless.provisioned_concurrency
   create_async_queue                = var.backend_serverless.create_async_queue
+  grafana_cloud                     = var.backend_serverless.grafana_cloud
 }
 
 # module "discord-bot" {

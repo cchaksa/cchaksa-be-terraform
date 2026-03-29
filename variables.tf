@@ -176,6 +176,14 @@ variable "backend_serverless" {
     certificate_arn                   = string
     provisioned_concurrency           = number
     create_async_queue                = bool
+    grafana_cloud = object({
+      enabled             = bool
+      instance_id         = string
+      otlp_endpoint       = string
+      api_key_secret_arn  = string
+      extension_layer_arn = string
+      service_name        = string
+    })
   })
   default = {
     app_name                          = "haksa-serverless"
@@ -188,6 +196,14 @@ variable "backend_serverless" {
     certificate_arn                   = ""
     provisioned_concurrency           = 0
     create_async_queue                = false
+    grafana_cloud = {
+      enabled             = false
+      instance_id         = ""
+      otlp_endpoint       = ""
+      api_key_secret_arn  = ""
+      extension_layer_arn = ""
+      service_name        = ""
+    }
   }
 
   validation {
@@ -198,6 +214,16 @@ variable "backend_serverless" {
       trimspace(var.backend_serverless.certificate_arn) != ""
     )
     error_message = "enable_backend_serverless=true 인 경우 backend_serverless.app_name, lambda_package_path, custom_domain_name, certificate_arn를 설정해야 한다."
+  }
+
+  validation {
+    condition = !var.enable_backend_serverless || !var.backend_serverless.grafana_cloud.enabled || (
+      trimspace(var.backend_serverless.grafana_cloud.instance_id) != "" &&
+      trimspace(var.backend_serverless.grafana_cloud.otlp_endpoint) != "" &&
+      trimspace(var.backend_serverless.grafana_cloud.api_key_secret_arn) != "" &&
+      trimspace(var.backend_serverless.grafana_cloud.extension_layer_arn) != ""
+    )
+    error_message = "backend_serverless.grafana_cloud.enabled=true 인 경우 instance_id, otlp_endpoint, api_key_secret_arn, extension_layer_arn를 모두 설정해야 한다."
   }
 }
 # endregion

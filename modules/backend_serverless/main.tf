@@ -1,12 +1,15 @@
 locals {
-  lambda_handler       = "com.chukchuk.haksa.global.lambda.StreamLambdaHandler::handleRequest"
-  lambda_runtime       = "java17"
-  lambda_architectures = ["arm64"]
-  lambda_timeout       = 30
-  lambda_memory_size   = 1024
-  create_custom_domain = trimspace(var.custom_domain_name) != "" && trimspace(var.certificate_arn) != ""
-  artifact_bucket_name = "cck-${var.environment}-${substr(md5(var.app_name), 0, 8)}-lambda-${data.aws_caller_identity.current.account_id}"
-  artifact_object_key  = "packages/${filemd5(var.lambda_package_path)}-${basename(var.lambda_package_path)}"
+  lambda_handler             = "com.chukchuk.haksa.global.lambda.StreamLambdaHandler::handleRequest"
+  lambda_runtime             = "java17"
+  lambda_architectures       = ["arm64"]
+  lambda_timeout             = 30
+  lambda_memory_size         = 1024
+  create_custom_domain       = trimspace(var.custom_domain_name) != "" && trimspace(var.certificate_arn) != ""
+  artifact_bucket_name       = "cck-${var.environment}-${substr(md5(var.app_name), 0, 8)}-lambda-${data.aws_caller_identity.current.account_id}"
+  artifact_object_key        = "packages/${filemd5(var.lambda_package_path)}-${basename(var.lambda_package_path)}"
+  grafana_cloud_enabled      = var.grafana_cloud.enabled
+  grafana_cloud_service_name = trimspace(var.grafana_cloud.service_name) != "" ? var.grafana_cloud.service_name : "${var.environment}-${var.app_name}"
+  lambda_layers              = local.grafana_cloud_enabled ? [var.grafana_cloud.extension_layer_arn] : []
 
   async_queue_visibility_secs   = 120
   async_queue_retention_secs    = 345600
@@ -19,6 +22,19 @@ locals {
     } : {},
     local.scraping_callback_hmac_secret != null ? {
       SCRAPING_CALLBACK_HMAC_SECRET = local.scraping_callback_hmac_secret
+    } : {},
+    local.grafana_cloud_enabled ? {
+      GRAFANA_CLOUD_INSTANCE_ID              = var.grafana_cloud.instance_id
+      GRAFANA_CLOUD_OTLP_ENDPOINT            = var.grafana_cloud.otlp_endpoint
+      GRAFANA_CLOUD_API_KEY_ARN              = var.grafana_cloud.api_key_secret_arn
+      OTEL_SERVICE_NAME                      = local.grafana_cloud_service_name
+      OTEL_RESOURCE_ATTRIBUTES               = "deployment.environment=${var.environment}"
+      OTEL_EXPORTER_OTLP_ENDPOINT            = "http://localhost:4318"
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT    = "http://localhost:4318/v1/metrics"
+      OTEL_EXPORTER_OTLP_PROTOCOL            = "http/protobuf"
+      MANAGEMENT_OTLP_TRACING_ENDPOINT       = "http://localhost:4318/v1/traces"
+      MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED = "true"
+      MANAGEMENT_OTLP_METRICS_EXPORT_URL     = "http://localhost:4318/v1/metrics"
     } : {}
   )
 }
@@ -57,6 +73,13 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_xray_daemon_write" {
+  count = local.grafana_cloud_enabled ? 1 : 0
+
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 data "aws_iam_policy_document" "lambda_scraping_queue_access" {
   count = trimspace(var.scraping_job_queue_arn) != "" ? 1 : 0
 
@@ -78,6 +101,27 @@ resource "aws_iam_role_policy" "lambda_scraping_queue_access" {
   name   = "${var.environment}-${var.app_name}-sqs-send"
   role   = aws_iam_role.lambda_exec.id
   policy = data.aws_iam_policy_document.lambda_scraping_queue_access[0].json
+}
+
+data "aws_iam_policy_document" "lambda_grafana_cloud_secret_access" {
+  count = local.grafana_cloud_enabled ? 1 : 0
+
+  statement {
+    sid    = "AllowGrafanaCloudApiKeyRead"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [var.grafana_cloud.api_key_secret_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_grafana_cloud_secret_access" {
+  count = local.grafana_cloud_enabled ? 1 : 0
+
+  name   = "${var.environment}-${var.app_name}-grafana-cloud-secret-read"
+  role   = aws_iam_role.lambda_exec.id
+  policy = data.aws_iam_policy_document.lambda_grafana_cloud_secret_access[0].json
 }
 
 resource "aws_cloudwatch_log_group" "lambda" {
@@ -153,9 +197,18 @@ resource "aws_lambda_function" "backend" {
   s3_bucket         = aws_s3_bucket.lambda_artifacts.id
   s3_key            = aws_s3_object.lambda_package.key
   s3_object_version = aws_s3_object.lambda_package.version_id
+  layers            = local.lambda_layers
 
   snap_start {
     apply_on = "PublishedVersions"
+  }
+
+  dynamic "tracing_config" {
+    for_each = local.grafana_cloud_enabled ? [1] : []
+
+    content {
+      mode = "Active"
+    }
   }
 
   environment {
@@ -172,6 +225,7 @@ resource "aws_lambda_function" "backend" {
 
   depends_on = [
     aws_cloudwatch_log_group.lambda,
+    aws_iam_role_policy_attachment.lambda_xray_daemon_write,
     aws_s3_bucket_public_access_block.lambda_artifacts,
     aws_s3_bucket_versioning.lambda_artifacts,
     aws_s3_bucket_server_side_encryption_configuration.lambda_artifacts
