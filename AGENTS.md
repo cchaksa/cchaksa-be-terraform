@@ -18,14 +18,18 @@
 - `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask + ECR 연동)
 - `modules/scraper_worker/`: 스크래핑 워커 실행 모듈(ECS Cluster/TaskDefinition/IAM/Logs)
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
+- `scrape_result_storage`: develop-shadow 결과 저장 버킷(S3 + IAM + env 주입)
 - `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
-- `tfvars/develop-shadow.tfvars`: develop-shadow 적용 전용 변수 파일
+- `tfvars/develop-shadow.tfvars.example`: develop-shadow 적용 전용 변수 예시 파일(실제 `tfvars/develop-shadow.tfvars`는 민감값 포함 가능성이 있어 Git에 올리지 않음)
 - shadow 상태를 사용할 때는 `environment=develop-shadow`, `enable_develop=false`로 설정하고 루트에서 `module.component`를 비활성화한다
 - 스크래핑 모듈 입력 원칙:
   - 루트 변수 `scraper_async` 객체 1개로 최소 필수값만 전달
   - 워커 리소스 자동 생성 시 루트 변수 `scraper_worker` 객체 사용
   - 큐 이름/리텐션/배치/pipe 상태 등은 모듈 내부 기본값 사용
   - `enable_scraper_async=true`일 때 필수 참조값(Cluster/TaskDefinition/Role/Subnet/SG/Prefix) 누락 금지
+  - 결과물 S3 저장은 `scrape_result_storage.enabled=true`로 토글하며 `bucket_name`을 비우면 `cck-<environment>-scrape-results-<account_id>` 네이밍을 자동 사용한다(기본 prefix는 `develop-shadow/`)
+  - 해당 버킷은 Public Access Block + AES256 기본 암호화 + 30일 lifecycle 규칙을 고정으로 유지한다
+  - `scrape_result_storage` 활성화 시 워커/Lambda IAM에 prefix 범위 한정 S3 권한이 자동 부여되고 `SCRAPE_RESULT_BUCKET`/`SCRAPE_RESULT_PREFIX` env가 자동 주입되므로 모듈 밖에서 수동 env/권한을 중복 추가하지 않는다
 - 워커 시크릿 입력 원칙:
   - `scraper_worker.task_secrets`로 ECS container secrets(`name` -> `valueFrom ARN`)를 주입
   - `task_secrets`를 사용할 때 execution role에 해당 secret ARN에 대한 읽기 권한(`secretsmanager:GetSecretValue` 또는 `ssm:GetParameters`)이 함께 부여되어야 한다
@@ -34,7 +38,8 @@
 - `aws_pipes_pipe`의 최신 `task_definition_arn`과 container override(`SQS_MESSAGE_BODY`, `SQS_MESSAGE_ID`)는 CI가 관리하므로 Terraform은 drift를 무시해야 한다
 - 백엔드 서버리스 입력 원칙:
   - 루트 변수 `backend_serverless` 객체 1개로 최소 필수값만 전달
-  - runtime/handler/memory/timeout/async 큐 정책값은 모듈 내부 기본값 사용
+  - runtime/handler/timeout/async 큐 정책값은 모듈 내부 기본값 사용
+  - memory/예약 동시 실행 수는 모듈 기본값을 우선 사용하되, shadow 환경의 기존 운영값을 유지해야 할 때만 tfvars에서 명시 override 한다
   - `enable_backend_serverless=true`일 때 `app_name`, `lambda_package_path`, `custom_domain_name`, `certificate_arn` 누락 금지
   - Supabase 외부 연결 기준으로 Lambda는 기본적으로 VPC에 넣지 않는다
   - `modules/backend_serverless`는 SnapStart, API Gateway custom domain, API mapping을 기본 지원한다
@@ -62,6 +67,7 @@
 - 예상치 못한 변경 발견 시 즉시 중단 후 공유
 - 모든 작업은 double check 수행(포맷/검증/영향 확인)
 - 스크래핑 전환 시 워커 스펙은 `Fargate 1 vCPU / 2GB`, 접두어는 `develop-shadow-*`를 기본값으로 사용
+- develop-shadow 결과 버킷은 병행 그림자 환경에서만 생성하고 운영 계정 배포 시에는 별도 승인 후 적용한다
 - 운영 Launch Template은 콘솔 수동 관리 정책을 적용하며 Terraform은 LT 드리프트 감지/적용을 제외한다(`ignore_changes = all`)
 
 ## 6. Context 문서 규칙
