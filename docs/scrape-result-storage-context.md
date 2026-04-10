@@ -16,11 +16,11 @@
 ## As-Is
 - 워커는 결과를 곧바로 백엔드에 전송하며 저장 버킷이나 IAM 권한이 정의되어 있지 않았다.
 - tfvars/develop-shadow.tfvars 파일이 저장소에 없어서 환경 입력 소스가 불명확했다.
-- 백엔드 Lambda/Worker 환경변수에 `SCRAPE_RESULT_*` 값이 존재하지 않고 S3 접근도 불가했다.
+- 백엔드 Lambda/Worker 환경변수에 `SCRAPING_RESULT_*` 값이 존재하지 않고 S3 접근도 불가했다.
 
 ## To-Be
 - `scrape_result_storage.enabled=true` 설정 시 `cck-<env>-scrape-results-<account>` 형태 버킷이 자동 생성되며 prefix 기반 30일 lifecycle, AES256 암호화, Public Access Block이 기본 적용된다.
-- 워커/Lambda IAM에 prefix 범위 제한 S3 권한이 자동 부여되고 `SCRAPE_RESULT_BUCKET`/`SCRAPE_RESULT_PREFIX` 환경변수가 자동 주입된다.
+- 워커/Lambda IAM에 prefix 범위 제한 S3 권한이 자동 부여되고 `SCRAPING_RESULT_BUCKET`/`SCRAPING_RESULT_PREFIX`/region/max payload/timeout 환경변수가 자동 주입된다.
 - 민감값이 필요한 실제 `tfvars/develop-shadow.tfvars`는 로컬 전용으로 유지하고, 저장소에는 `tfvars/develop-shadow.tfvars.example`만 포함한다.
 
 ## 구현 계획
@@ -38,8 +38,10 @@
   - `docs/scrape-result-storage-context.md` 초안을 작성하고 AGENTS.md를 갱신.
 - 2026-04-10 Asia/Seoul / local
   - Lambda 현재 운영값과 무관한 drift가 plan에 포함되지 않도록 `backend_serverless.lambda_memory_size`, `backend_serverless.reserved_concurrent_executions` override 입력을 추가했다.
-  - backend Lambda 환경변수는 기존 운영값에 `SCRAPE_RESULT_BUCKET`, `SCRAPE_RESULT_PREFIX`만 추가되도록 정리하고 placeholder `SUPABASE_*`, `LOGGING_LEVEL_ROOT` 입력은 제거했다.
+  - backend Lambda 환경변수는 기존 운영값에 `SCRAPING_RESULT_*`만 추가되도록 정리하고 placeholder `SUPABASE_*`, `LOGGING_LEVEL_ROOT` 입력은 제거했다.
   - `terraform apply -var-file=tfvars/develop-shadow.tfvars -auto-approve`를 실행해 develop-shadow 결과 버킷/IAM/워커 task definition/Lambda 환경변수를 반영했다.
+  - 백엔드/워커 설정명 변경에 맞춰 `SCRAPE_RESULT_*`를 `SCRAPING_RESULT_*`로 교체하고 region/max payload/API timeout env를 추가했다.
+  - `SCRAPING_RESULT_API_CALL_TIMEOUT_SECONDS`, `SCRAPING_RESULT_API_CALL_ATTEMPT_TIMEOUT_SECONDS`는 모두 30초로 설정했다.
 
 ## 검증 결과
 - 2026-04-09 Asia/Seoul / local
@@ -48,10 +50,11 @@
   - `terraform plan -var-file=tfvars/develop-shadow.tfvars`
   - `terraform apply -var-file=tfvars/develop-shadow.tfvars -auto-approve`
   - apply 후 `terraform plan -var-file=tfvars/develop-shadow.tfvars` 결과 `No changes. Your infrastructure matches the configuration.`
+  - env 이름 변경 apply 후 재실행한 `terraform plan -var-file=tfvars/develop-shadow.tfvars` 결과도 `No changes. Your infrastructure matches the configuration.`
 
 ## 전환 계획
 - develop-shadow 전용 profile로 `terraform plan/apply -var-file=tfvars/develop-shadow.tfvars`를 실행하여 결과 버킷과 IAM/ENV 만 변경되는지 검증한다.
-- 백엔드/워커 애플리케이션이 `SCRAPE_RESULT_*` 환경변수를 참조하도록 코드/설정을 맞춘 후 Shadow에서 end-to-end 테스트를 수행한다.
+- 백엔드/워커 애플리케이션이 `SCRAPING_RESULT_*` 환경변수를 참조하도록 코드/설정을 맞춘 후 Shadow에서 end-to-end 테스트를 수행한다.
 
 ## 롤백 계획
 - `scrape_result_storage.enabled=false` 로 토글하고 Terraform apply를 수행하면 신규 S3/IAM/ENV가 제거된다.

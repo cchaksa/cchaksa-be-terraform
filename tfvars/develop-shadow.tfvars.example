@@ -80,7 +80,10 @@ backend_serverless = {
 }
 
 scrape_result_storage = {
-  enabled     = true
-  bucket_name = ""
-  prefix      = "develop-shadow/"
+  enabled                          = true
+  bucket_name                      = ""
+  prefix                           = "develop-shadow/"
+  max_payload_bytes                = 2097152
+  api_call_timeout_seconds         = 30
+  api_call_attempt_timeout_seconds = 30
 }

@@ -234,14 +234,27 @@ variable "backend_serverless" {
 variable "scrape_result_storage" {
   description = "스크래핑 결과 저장 버킷 토글/설정"
   type = object({
-    enabled     = bool
-    bucket_name = string
-    prefix      = string
+    enabled                          = bool
+    bucket_name                      = string
+    prefix                           = string
+    max_payload_bytes                = optional(number, 2097152)
+    api_call_timeout_seconds         = optional(number, 30)
+    api_call_attempt_timeout_seconds = optional(number, 30)
   })
   default = {
     enabled     = false
     bucket_name = ""
     prefix      = ""
+  }
+
+  validation {
+    condition = !var.scrape_result_storage.enabled || (
+      var.scrape_result_storage.max_payload_bytes > 0 &&
+      var.scrape_result_storage.api_call_timeout_seconds > 0 &&
+      var.scrape_result_storage.api_call_attempt_timeout_seconds > 0 &&
+      var.scrape_result_storage.api_call_attempt_timeout_seconds <= var.scrape_result_storage.api_call_timeout_seconds
+    )
+    error_message = "scrape_result_storage timeout/max payload 값은 양수여야 하며 api_call_attempt_timeout_seconds는 api_call_timeout_seconds보다 클 수 없다."
   }
 }
 # endregion

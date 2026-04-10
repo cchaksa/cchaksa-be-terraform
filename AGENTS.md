@@ -29,7 +29,7 @@
   - `enable_scraper_async=true`일 때 필수 참조값(Cluster/TaskDefinition/Role/Subnet/SG/Prefix) 누락 금지
   - 결과물 S3 저장은 `scrape_result_storage.enabled=true`로 토글하며 `bucket_name`을 비우면 `cck-<environment>-scrape-results-<account_id>` 네이밍을 자동 사용한다(기본 prefix는 `develop-shadow/`)
   - 해당 버킷은 Public Access Block + AES256 기본 암호화 + 30일 lifecycle 규칙을 고정으로 유지한다
-  - `scrape_result_storage` 활성화 시 워커/Lambda IAM에 prefix 범위 한정 S3 권한이 자동 부여되고 `SCRAPE_RESULT_BUCKET`/`SCRAPE_RESULT_PREFIX` env가 자동 주입되므로 모듈 밖에서 수동 env/권한을 중복 추가하지 않는다
+  - `scrape_result_storage` 활성화 시 워커/Lambda IAM에 prefix 범위 한정 S3 권한이 자동 부여되고 `SCRAPING_RESULT_*` env가 자동 주입되므로 모듈 밖에서 수동 env/권한을 중복 추가하지 않는다
 - 워커 시크릿 입력 원칙:
   - `scraper_worker.task_secrets`로 ECS container secrets(`name` -> `valueFrom ARN`)를 주입
   - `task_secrets`를 사용할 때 execution role에 해당 secret ARN에 대한 읽기 권한(`secretsmanager:GetSecretValue` 또는 `ssm:GetParameters`)이 함께 부여되어야 한다

@@ -24,16 +24,18 @@ locals {
   scrape_result_prefix       = local.scrape_result_enabled && trimspace(local.scrape_result_prefix_input) != "" ? "${trimsuffix(local.scrape_result_prefix_input, "/")}/" : ""
   scrape_result_bucket_arn   = local.scrape_result_enabled ? "arn:aws:s3:::${local.scrape_result_bucket_name}" : null
   scrape_result_object_arn   = local.scrape_result_enabled ? (local.scrape_result_prefix != "" ? "arn:aws:s3:::${local.scrape_result_bucket_name}/${local.scrape_result_prefix}*" : "arn:aws:s3:::${local.scrape_result_bucket_name}/*") : null
-  scraper_worker_task_environment = local.scrape_result_enabled ? merge(var.scraper_worker.task_environment, {
-    SCRAPE_RESULT_BUCKET = local.scrape_result_bucket_name
-    SCRAPE_RESULT_PREFIX = local.scrape_result_prefix
-  }) : var.scraper_worker.task_environment
-  backend_serverless_lambda_environment = local.scrape_result_enabled ? merge(var.backend_serverless.lambda_environment, {
-    SCRAPE_RESULT_BUCKET = local.scrape_result_bucket_name
-    SCRAPE_RESULT_PREFIX = local.scrape_result_prefix
-  }) : var.backend_serverless.lambda_environment
-  scraper_worker_task_role_name       = local.scrape_result_enabled && var.enable_scraper_async && var.enable_scraper_worker_infra ? element(split("/", module.scraper_worker[0].task_role_arn), length(split("/", module.scraper_worker[0].task_role_arn)) - 1) : null
-  backend_serverless_lambda_role_name = local.scrape_result_enabled && var.enable_backend_serverless ? element(split("/", module.backend_serverless[0].lambda_role_arn), length(split("/", module.backend_serverless[0].lambda_role_arn)) - 1) : null
+  scrape_result_environment = local.scrape_result_enabled ? {
+    SCRAPING_RESULT_BUCKET                           = local.scrape_result_bucket_name
+    SCRAPING_RESULT_PREFIX                           = local.scrape_result_prefix
+    SCRAPING_RESULT_REGION                           = var.aws_region
+    SCRAPING_RESULT_MAX_PAYLOAD_BYTES                = tostring(var.scrape_result_storage.max_payload_bytes)
+    SCRAPING_RESULT_API_CALL_TIMEOUT_SECONDS         = tostring(var.scrape_result_storage.api_call_timeout_seconds)
+    SCRAPING_RESULT_API_CALL_ATTEMPT_TIMEOUT_SECONDS = tostring(var.scrape_result_storage.api_call_attempt_timeout_seconds)
+  } : {}
+  scraper_worker_task_environment       = merge(var.scraper_worker.task_environment, local.scrape_result_environment)
+  backend_serverless_lambda_environment = merge(var.backend_serverless.lambda_environment, local.scrape_result_environment)
+  scraper_worker_task_role_name         = local.scrape_result_enabled && var.enable_scraper_async && var.enable_scraper_worker_infra ? element(split("/", module.scraper_worker[0].task_role_arn), length(split("/", module.scraper_worker[0].task_role_arn)) - 1) : null
+  backend_serverless_lambda_role_name   = local.scrape_result_enabled && var.enable_backend_serverless ? element(split("/", module.backend_serverless[0].lambda_role_arn), length(split("/", module.backend_serverless[0].lambda_role_arn)) - 1) : null
 }
 
 moved {
