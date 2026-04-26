@@ -41,3 +41,19 @@ output "backend_serverless_custom_domain_target_domain_name" {
 output "backend_serverless_custom_domain_hosted_zone_id" {
   value = var.enable_backend_serverless ? module.backend_serverless[0].custom_domain_hosted_zone_id : null
 }
+
+output "backend_serverless_maintenance_scheduler_names" {
+  value = var.enable_backend_serverless ? module.backend_serverless[0].maintenance_scheduler_names : []
+}
+
+output "backend_serverless_maintenance_scheduler_dlq_arn" {
+  value = var.enable_backend_serverless ? module.backend_serverless[0].maintenance_scheduler_dlq_arn : null
+}
+
+output "scrape_result_bucket_name" {
+  value = local.scrape_result_enabled ? local.scrape_result_bucket_name : null
+}
+
+output "scrape_result_prefix" {
+  value = local.scrape_result_enabled ? local.scrape_result_prefix : null
+}

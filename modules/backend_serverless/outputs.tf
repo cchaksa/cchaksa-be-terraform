@@ -25,3 +25,15 @@ output "custom_domain_hosted_zone_id" {
 output "async_queue_url" {
   value = var.create_async_queue ? aws_sqs_queue.async_queue[0].url : null
 }
+
+output "lambda_role_arn" {
+  value = aws_iam_role.lambda_exec.arn
+}
+
+output "maintenance_scheduler_names" {
+  value = var.maintenance_schedules.enabled ? [for schedule in aws_scheduler_schedule.maintenance : schedule.name] : []
+}
+
+output "maintenance_scheduler_dlq_arn" {
+  value = var.maintenance_schedules.enabled ? aws_sqs_queue.maintenance_scheduler_dlq[0].arn : null
+}
