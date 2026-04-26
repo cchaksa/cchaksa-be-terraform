@@ -13,9 +13,27 @@ locals {
   async_queue_visibility_secs   = 120
   async_queue_retention_secs    = 345600
   async_queue_max_receive       = 5
+  maintenance_schedules_enabled = var.maintenance_schedules.enabled
+  maintenance_schedule_tasks = {
+    scrape_job_reconcile_stale = {
+      name                = "${var.environment}-${var.app_name}-scrape-job-stale-reconcile"
+      description         = "Invoke backend maintenance task to fail stale scrape jobs."
+      task                = "SCRAPE_JOB_RECONCILE_STALE"
+      schedule_expression = var.maintenance_schedules.stale_scrape_jobs_schedule
+    }
+    refresh_token_cleanup = {
+      name                = "${var.environment}-${var.app_name}-refresh-token-cleanup"
+      description         = "Invoke backend maintenance task to delete expired refresh tokens."
+      task                = "REFRESH_TOKEN_CLEANUP"
+      schedule_expression = var.maintenance_schedules.refresh_token_cleanup_schedule
+    }
+  }
   scraping_callback_hmac_secret = trimspace(var.scraping_callback_hmac_secret_arn) != "" ? nonsensitive(data.aws_secretsmanager_secret_version.scraping_callback_hmac_secret[0].secret_string) : null
   lambda_environment = merge(
     var.lambda_environment,
+    local.maintenance_schedules_enabled ? {
+      SCRAPING_SCHEDULER_ENABLED = "false"
+    } : {},
     trimspace(var.scraping_job_queue_url) != "" ? {
       SCRAPING_JOB_QUEUE_URL = var.scraping_job_queue_url
     } : {},
@@ -305,6 +323,120 @@ resource "aws_lambda_permission" "apigw_invoke" {
   qualifier     = aws_lambda_alias.live.name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+resource "aws_sqs_queue" "maintenance_scheduler_dlq" {
+  count = local.maintenance_schedules_enabled ? 1 : 0
+
+  name                      = "${var.environment}-${var.app_name}-maintenance-scheduler-dlq"
+  message_retention_seconds = var.maintenance_schedules.dlq_message_retention_seconds
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+data "aws_iam_policy_document" "maintenance_scheduler_assume_role" {
+  count = local.maintenance_schedules_enabled ? 1 : 0
+
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "maintenance_scheduler" {
+  count = local.maintenance_schedules_enabled ? 1 : 0
+
+  name               = "${var.environment}-${var.app_name}-maintenance-scheduler-role"
+  assume_role_policy = data.aws_iam_policy_document.maintenance_scheduler_assume_role[0].json
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+data "aws_iam_policy_document" "maintenance_scheduler_invoke" {
+  count = local.maintenance_schedules_enabled ? 1 : 0
+
+  statement {
+    sid    = "AllowBackendLambdaInvoke"
+    effect = "Allow"
+    actions = [
+      "lambda:InvokeFunction"
+    ]
+    resources = [
+      aws_lambda_alias.live.arn
+    ]
+  }
+
+  statement {
+    sid    = "AllowSchedulerDlqSend"
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage"
+    ]
+    resources = [
+      aws_sqs_queue.maintenance_scheduler_dlq[0].arn
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "maintenance_scheduler_invoke" {
+  count = local.maintenance_schedules_enabled ? 1 : 0
+
+  name   = "${var.environment}-${var.app_name}-maintenance-scheduler-invoke"
+  role   = aws_iam_role.maintenance_scheduler[0].id
+  policy = data.aws_iam_policy_document.maintenance_scheduler_invoke[0].json
+}
+
+resource "aws_scheduler_schedule" "maintenance" {
+  for_each = local.maintenance_schedules_enabled ? local.maintenance_schedule_tasks : {}
+
+  name                = each.value.name
+  description         = each.value.description
+  schedule_expression = each.value.schedule_expression
+  state               = var.maintenance_schedules.state
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_alias.live.arn
+    role_arn = aws_iam_role.maintenance_scheduler[0].arn
+    input = jsonencode({
+      source       = "eventbridge.scheduler"
+      task         = each.value.task
+      scheduled_at = "<aws.scheduler.scheduled-time>"
+    })
+
+    dead_letter_config {
+      arn = aws_sqs_queue.maintenance_scheduler_dlq[0].arn
+    }
+
+    retry_policy {
+      maximum_event_age_in_seconds = var.maintenance_schedules.maximum_event_age_in_seconds
+      maximum_retry_attempts       = var.maintenance_schedules.maximum_retry_attempts
+    }
+  }
+}
+
+resource "aws_lambda_permission" "maintenance_scheduler_invoke" {
+  for_each = aws_scheduler_schedule.maintenance
+
+  statement_id  = "AllowSchedulerInvoke-${each.key}"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.backend.function_name
+  qualifier     = aws_lambda_alias.live.name
+  principal     = "scheduler.amazonaws.com"
+  source_arn    = each.value.arn
 }
 
 resource "aws_sqs_queue" "async_dlq" {
