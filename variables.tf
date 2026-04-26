@@ -168,6 +168,8 @@ variable "backend_serverless" {
   type = object({
     app_name                          = string
     lambda_package_path               = string
+    lambda_memory_size                = number
+    reserved_concurrent_executions    = number
     lambda_environment                = map(string)
     scraping_job_queue_url            = string
     scraping_job_queue_arn            = string
@@ -188,6 +190,8 @@ variable "backend_serverless" {
   default = {
     app_name                          = "haksa-serverless"
     lambda_package_path               = ""
+    lambda_memory_size                = 1024
+    reserved_concurrent_executions    = -1
     lambda_environment                = {}
     scraping_job_queue_url            = ""
     scraping_job_queue_arn            = ""
@@ -224,6 +228,33 @@ variable "backend_serverless" {
       trimspace(var.backend_serverless.grafana_cloud.extension_layer_arn) != ""
     )
     error_message = "backend_serverless.grafana_cloud.enabled=true 인 경우 instance_id, otlp_endpoint, api_key_secret_arn, extension_layer_arn를 모두 설정해야 한다."
+  }
+}
+
+variable "scrape_result_storage" {
+  description = "스크래핑 결과 저장 버킷 토글/설정"
+  type = object({
+    enabled                          = bool
+    bucket_name                      = string
+    prefix                           = string
+    max_payload_bytes                = optional(number, 2097152)
+    api_call_timeout_seconds         = optional(number, 30)
+    api_call_attempt_timeout_seconds = optional(number, 30)
+  })
+  default = {
+    enabled     = false
+    bucket_name = ""
+    prefix      = ""
+  }
+
+  validation {
+    condition = !var.scrape_result_storage.enabled || (
+      var.scrape_result_storage.max_payload_bytes > 0 &&
+      var.scrape_result_storage.api_call_timeout_seconds > 0 &&
+      var.scrape_result_storage.api_call_attempt_timeout_seconds > 0 &&
+      var.scrape_result_storage.api_call_attempt_timeout_seconds <= var.scrape_result_storage.api_call_timeout_seconds
+    )
+    error_message = "scrape_result_storage timeout/max payload 값은 양수여야 하며 api_call_attempt_timeout_seconds는 api_call_timeout_seconds보다 클 수 없다."
   }
 }
 # endregion

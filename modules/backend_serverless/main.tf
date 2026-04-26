@@ -3,7 +3,6 @@ locals {
   lambda_runtime             = "java17"
   lambda_architectures       = ["arm64"]
   lambda_timeout             = 30
-  lambda_memory_size         = 1024
   create_custom_domain       = trimspace(var.custom_domain_name) != "" && trimspace(var.certificate_arn) != ""
   artifact_bucket_name       = "cck-${var.environment}-${substr(md5(var.app_name), 0, 8)}-lambda-${data.aws_caller_identity.current.account_id}"
   artifact_object_key        = "packages/${filemd5(var.lambda_package_path)}-${basename(var.lambda_package_path)}"
@@ -185,19 +184,20 @@ resource "aws_s3_object" "lambda_package" {
 }
 
 resource "aws_lambda_function" "backend" {
-  function_name     = "${var.environment}-${var.app_name}"
-  role              = aws_iam_role.lambda_exec.arn
-  handler           = local.lambda_handler
-  source_code_hash  = filebase64sha256(var.lambda_package_path)
-  runtime           = local.lambda_runtime
-  timeout           = local.lambda_timeout
-  memory_size       = local.lambda_memory_size
-  architectures     = local.lambda_architectures
-  publish           = true
-  s3_bucket         = aws_s3_bucket.lambda_artifacts.id
-  s3_key            = aws_s3_object.lambda_package.key
-  s3_object_version = aws_s3_object.lambda_package.version_id
-  layers            = local.lambda_layers
+  function_name                  = "${var.environment}-${var.app_name}"
+  role                           = aws_iam_role.lambda_exec.arn
+  handler                        = local.lambda_handler
+  source_code_hash               = filebase64sha256(var.lambda_package_path)
+  runtime                        = local.lambda_runtime
+  timeout                        = local.lambda_timeout
+  memory_size                    = var.lambda_memory_size
+  reserved_concurrent_executions = var.reserved_concurrent_executions
+  architectures                  = local.lambda_architectures
+  publish                        = true
+  s3_bucket                      = aws_s3_bucket.lambda_artifacts.id
+  s3_key                         = aws_s3_object.lambda_package.key
+  s3_object_version              = aws_s3_object.lambda_package.version_id
+  layers                         = local.lambda_layers
 
   snap_start {
     apply_on = "PublishedVersions"

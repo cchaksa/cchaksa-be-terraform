@@ -11,6 +11,16 @@ variable "lambda_package_path" {
   type = string
 }
 
+variable "lambda_memory_size" {
+  type    = number
+  default = 1024
+}
+
+variable "reserved_concurrent_executions" {
+  type    = number
+  default = -1
+}
+
 variable "lambda_environment" {
   type    = map(string)
   default = {}
