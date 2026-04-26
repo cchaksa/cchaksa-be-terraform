@@ -60,6 +60,7 @@ backend_serverless = {
     LOG_PATH                                = "/tmp"
     MANAGEMENT_TRACING_SAMPLING_PROBABILITY = "1.0"
     REDIS_ENCRYPT_KEY                       = "<redis-encrypt-key>"
+    SCRAPING_SCHEDULER_ENABLED              = "false"
     SPRING_PROFILES_ACTIVE                  = "develop-shadow"
   }
   scraping_job_queue_url            = ""
@@ -69,6 +70,15 @@ backend_serverless = {
   certificate_arn                   = "arn:aws:acm:ap-northeast-2:<account_id>:certificate/<certificate-id>"
   provisioned_concurrency           = 0
   create_async_queue                = false
+  maintenance_schedules = {
+    enabled                         = true
+    state                           = "ENABLED"
+    stale_scrape_jobs_schedule      = "rate(1 minute)"
+    refresh_token_cleanup_schedule  = "rate(1 hour)"
+    maximum_retry_attempts          = 3
+    maximum_event_age_in_seconds    = 300
+    dlq_message_retention_seconds   = 1209600
+  }
   grafana_cloud = {
     enabled             = true
     instance_id         = "<grafana-instance-id>"

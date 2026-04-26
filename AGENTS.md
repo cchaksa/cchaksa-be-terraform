@@ -45,8 +45,10 @@
   - `modules/backend_serverless`는 SnapStart, API Gateway custom domain, API mapping을 기본 지원한다
   - Lambda 패키지가 직접 업로드 한도를 넘는 경우를 대비해 `modules/backend_serverless`는 전용 S3 artifact bucket/object를 통해 배포한다
   - Lambda Grafana Cloud 연동은 `backend_serverless.grafana_cloud` 객체로 관리하며 extension layer ARN, instance ID, OTLP endpoint, API key secret ARN을 함께 전달한다
+  - Lambda maintenance 작업 전환은 `backend_serverless.maintenance_schedules` 객체로 관리하며 EventBridge Scheduler가 `live` alias를 직접 invoke한다
   - Grafana Cloud API key는 코드/평문 tfvars에 두지 않고 Secrets Manager ARN으로만 주입하며, Lambda role에는 `secretsmanager:GetSecretValue` 권한을 부여한다
   - 스크래핑 비동기 백엔드 연동 시 `SCRAPING_JOB_QUEUE_URL`은 스크래핑 모듈 출력값을 우선 사용하고, Lambda role에는 대상 큐에 대한 `sqs:SendMessage/GetQueueAttributes/GetQueueUrl` 권한이 함께 부여되어야 한다
+  - S3 기반 스크래핑 결과 저장소는 루트 변수 `scrape_result_storage`로 관리하고, bucket/prefix/timeout 환경변수는 백엔드 Lambda와 scraper worker에 공통 주입한다
   - `SCRAPING_CALLBACK_HMAC_SECRET`은 코드 저장소에 평문으로 두지 않고 Secrets Manager ARN을 통해 Lambda 환경변수로 주입한다
   - `develop-shadow` 백엔드 Lambda 코드는 백엔드 저장소 CI가 배포하므로 Terraform은 `aws_s3_object.lambda_package`, `aws_lambda_function.backend`의 코드 관련 속성, `aws_lambda_alias.live.function_version` 드리프트를 무시하고 인프라/환경변수만 관리한다
 

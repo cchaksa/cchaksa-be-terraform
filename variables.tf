@@ -178,6 +178,15 @@ variable "backend_serverless" {
     certificate_arn                   = string
     provisioned_concurrency           = number
     create_async_queue                = bool
+    maintenance_schedules = object({
+      enabled                        = bool
+      state                          = string
+      stale_scrape_jobs_schedule     = string
+      refresh_token_cleanup_schedule = string
+      maximum_retry_attempts         = number
+      maximum_event_age_in_seconds   = number
+      dlq_message_retention_seconds  = number
+    })
     grafana_cloud = object({
       enabled             = bool
       instance_id         = string
@@ -200,6 +209,15 @@ variable "backend_serverless" {
     certificate_arn                   = ""
     provisioned_concurrency           = 0
     create_async_queue                = false
+    maintenance_schedules = {
+      enabled                        = false
+      state                          = "DISABLED"
+      stale_scrape_jobs_schedule     = "rate(5 minutes)"
+      refresh_token_cleanup_schedule = "rate(1 hour)"
+      maximum_retry_attempts         = 3
+      maximum_event_age_in_seconds   = 300
+      dlq_message_retention_seconds  = 1209600
+    }
     grafana_cloud = {
       enabled             = false
       instance_id         = ""
