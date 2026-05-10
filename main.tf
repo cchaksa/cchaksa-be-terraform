@@ -18,9 +18,9 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  scrape_result_enabled      = var.environment == "develop-shadow" && var.scrape_result_storage.enabled
+  scrape_result_enabled      = contains(["develop-shadow", "prod"], var.environment) && var.scrape_result_storage.enabled
   scrape_result_bucket_name  = local.scrape_result_enabled ? (trimspace(var.scrape_result_storage.bucket_name) != "" ? var.scrape_result_storage.bucket_name : "cck-${var.environment}-scrape-results-${data.aws_caller_identity.current.account_id}") : null
-  scrape_result_prefix_input = local.scrape_result_enabled ? (trimspace(var.scrape_result_storage.prefix) != "" ? var.scrape_result_storage.prefix : "develop-shadow/") : ""
+  scrape_result_prefix_input = local.scrape_result_enabled ? (trimspace(var.scrape_result_storage.prefix) != "" ? var.scrape_result_storage.prefix : "${var.environment}/") : ""
   scrape_result_prefix       = local.scrape_result_enabled && trimspace(local.scrape_result_prefix_input) != "" ? "${trimsuffix(local.scrape_result_prefix_input, "/")}/" : ""
   scrape_result_bucket_arn   = local.scrape_result_enabled ? "arn:aws:s3:::${local.scrape_result_bucket_name}" : null
   scrape_result_object_arn   = local.scrape_result_enabled ? (local.scrape_result_prefix != "" ? "arn:aws:s3:::${local.scrape_result_bucket_name}/${local.scrape_result_prefix}*" : "arn:aws:s3:::${local.scrape_result_bucket_name}/*") : null
@@ -100,6 +100,7 @@ module "backend_serverless" {
   lambda_environment                = local.backend_serverless_lambda_environment
   scraping_job_queue_url            = var.enable_scraper_async ? module.scraper_async[0].jobs_queue_url : var.backend_serverless.scraping_job_queue_url
   scraping_job_queue_arn            = var.enable_scraper_async ? module.scraper_async[0].jobs_queue_arn : var.backend_serverless.scraping_job_queue_arn
+  scraping_job_queue_access_enabled = var.enable_scraper_async || trimspace(var.backend_serverless.scraping_job_queue_arn) != ""
   scraping_callback_hmac_secret_arn = trimspace(var.backend_serverless.scraping_callback_hmac_secret_arn) != "" ? var.backend_serverless.scraping_callback_hmac_secret_arn : lookup(var.scraper_worker.task_secrets, "SCRAPE_CALLBACK_HMAC_SECRET", "")
   custom_domain_name                = var.backend_serverless.custom_domain_name
   certificate_arn                   = var.backend_serverless.certificate_arn

@@ -18,16 +18,17 @@
 - `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask + ECR 연동)
 - `modules/scraper_worker/`: 스크래핑 워커 실행 모듈(ECS Cluster/TaskDefinition/IAM/Logs)
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
-- `scrape_result_storage`: develop-shadow 결과 저장 버킷(S3 + IAM + env 주입)
+- `scrape_result_storage`: 스크래핑 결과 저장 버킷(S3 + IAM + env 주입, develop-shadow/prod 승인 적용)
 - `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
 - `tfvars/develop-shadow.tfvars.example`: develop-shadow 적용 전용 변수 예시 파일(실제 `tfvars/develop-shadow.tfvars`는 민감값 포함 가능성이 있어 Git에 올리지 않음)
+- `tfvars/prod.tfvars.example`: prod 서버리스 병행 리소스 사전 세팅 예시 파일(실제 `tfvars/prod.tfvars`는 민감값 포함 가능성이 있어 Git에 올리지 않음)
 - shadow 상태를 사용할 때는 `environment=develop-shadow`, `enable_develop=false`로 설정하고 루트에서 `module.component`를 비활성화한다
 - 스크래핑 모듈 입력 원칙:
   - 루트 변수 `scraper_async` 객체 1개로 최소 필수값만 전달
   - 워커 리소스 자동 생성 시 루트 변수 `scraper_worker` 객체 사용
   - 큐 이름/리텐션/배치/pipe 상태 등은 모듈 내부 기본값 사용
   - `enable_scraper_async=true`일 때 필수 참조값(Cluster/TaskDefinition/Role/Subnet/SG/Prefix) 누락 금지
-  - 결과물 S3 저장은 `scrape_result_storage.enabled=true`로 토글하며 `bucket_name`을 비우면 `cck-<environment>-scrape-results-<account_id>` 네이밍을 자동 사용한다(기본 prefix는 `develop-shadow/`)
+  - 결과물 S3 저장은 `scrape_result_storage.enabled=true`로 토글하며 `bucket_name`을 비우면 `cck-<environment>-scrape-results-<account_id>` 네이밍을 자동 사용한다(기본 prefix는 `<environment>/`)
   - 해당 버킷은 Public Access Block + AES256 기본 암호화 + 30일 lifecycle 규칙을 고정으로 유지한다
   - `scrape_result_storage` 활성화 시 워커/Lambda IAM에 prefix 범위 한정 S3 권한이 자동 부여되고 `SCRAPING_RESULT_*` env가 자동 주입되므로 모듈 밖에서 수동 env/권한을 중복 추가하지 않는다
 - 워커 시크릿 입력 원칙:
@@ -48,6 +49,7 @@
   - Lambda maintenance 작업 전환은 `backend_serverless.maintenance_schedules` 객체로 관리하며 EventBridge Scheduler가 `live` alias를 직접 invoke한다
   - Grafana Cloud API key는 코드/평문 tfvars에 두지 않고 Secrets Manager ARN으로만 주입하며, Lambda role에는 `secretsmanager:GetSecretValue` 권한을 부여한다
   - 스크래핑 비동기 백엔드 연동 시 `SCRAPING_JOB_QUEUE_URL`은 스크래핑 모듈 출력값을 우선 사용하고, Lambda role에는 대상 큐에 대한 `sqs:SendMessage/GetQueueAttributes/GetQueueUrl` 권한이 함께 부여되어야 한다
+  - 신규 큐를 같은 apply에서 생성할 수 있으므로 Lambda SQS env/IAM 생성 여부는 queue ARN 값 자체가 아니라 명시 boolean 입력으로 제어한다
   - S3 기반 스크래핑 결과 저장소는 루트 변수 `scrape_result_storage`로 관리하고, bucket/prefix/timeout 환경변수는 백엔드 Lambda와 scraper worker에 공통 주입한다
   - `SCRAPING_CALLBACK_HMAC_SECRET`은 코드 저장소에 평문으로 두지 않고 Secrets Manager ARN을 통해 Lambda 환경변수로 주입한다
   - `develop-shadow` 백엔드 Lambda 코드는 백엔드 저장소 CI가 배포하므로 Terraform은 `aws_s3_object.lambda_package`, `aws_lambda_function.backend`의 코드 관련 속성, `aws_lambda_alias.live.function_version` 드리프트를 무시하고 인프라/환경변수만 관리한다
@@ -68,8 +70,8 @@
 - 운영 리소스 직접 수정 금지(병행 리소스 생성 후 전환)
 - 예상치 못한 변경 발견 시 즉시 중단 후 공유
 - 모든 작업은 double check 수행(포맷/검증/영향 확인)
-- 스크래핑 전환 시 워커 스펙은 `Fargate 1 vCPU / 2GB`, 접두어는 `develop-shadow-*`를 기본값으로 사용
-- develop-shadow 결과 버킷은 병행 그림자 환경에서만 생성하고 운영 계정 배포 시에는 별도 승인 후 적용한다
+- 스크래핑 전환 시 워커 스펙은 `Fargate 1 vCPU / 2GB`, 접두어는 shadow는 `develop-shadow-*`, prod는 `prod-*`를 기본값으로 사용
+- 결과 저장 버킷은 shadow/prod 병행 리소스로만 생성하고, 운영 트래픽 전환은 별도 승인 후 적용한다
 - 운영 Launch Template은 콘솔 수동 관리 정책을 적용하며 Terraform은 LT 드리프트 감지/적용을 제외한다(`ignore_changes = all`)
 
 ## 6. Context 문서 규칙

@@ -36,6 +36,11 @@ variable "scraping_job_queue_arn" {
   default = ""
 }
 
+variable "scraping_job_queue_access_enabled" {
+  type    = bool
+  default = false
+}
+
 variable "scraping_callback_hmac_secret_arn" {
   type    = string
   default = ""

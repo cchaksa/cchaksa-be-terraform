@@ -1,0 +1,91 @@
+environment = "prod"
+aws_region  = "ap-northeast-2"
+aws_profile = "prod-cchaksa"
+app_ami_id  = "ami-xxxxxxxxxxxxxxxxx"
+
+# Prod serverless pre-staging. Existing EC2/ASG/ALB traffic must remain unchanged.
+enable_scraper_async        = true
+enable_scraper_worker_infra = true
+enable_backend_serverless   = true
+
+scraper_async = {
+  ecs_cluster_arn         = "" # enable_scraper_worker_infra=true 일 때 미사용
+  ecs_task_definition_arn = "" # enable_scraper_worker_infra=true 일 때 미사용
+  ecs_task_role_arns      = [] # enable_scraper_worker_infra=true 일 때 미사용
+  subnet_ids              = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+  security_group_ids      = ["sg-xxxxxxxxxxxxxxxxx"]
+  name_prefix             = "prod-scraper"
+  assign_public_ip        = "ENABLED"
+}
+
+scraper_worker = {
+  name_prefix = "prod-scraper"
+  image_uri   = "<account_id>.dkr.ecr.ap-northeast-2.amazonaws.com/prod-scraper-worker:<sha-or-bootstrap-tag>"
+  cpu         = 1024
+  memory      = 2048
+  task_environment = {
+    NODE_ENV                    = "production"
+    AWS_REGION                  = "ap-northeast-2"
+    WORKER_INPUT_MODE           = "pipe"
+    SCRAPE_CALLBACK_BASE_URL    = "https://api.cchaksa.com"
+    SCRAPE_CALLBACK_TIMEOUT_MS  = "5000"
+    SCRAPE_CALLBACK_MAX_RETRIES = "3"
+    WORKER_TOTAL_TIMEOUT_MS     = "120000"
+    WORKER_GRACEFUL_SHUTDOWN_MS = "10000"
+    PORTAL_TIMEOUT_MS           = "60000"
+  }
+  task_secrets = {
+    SCRAPE_CALLBACK_HMAC_SECRET = "arn:aws:secretsmanager:ap-northeast-2:<account_id>:secret:prod/scraper/SCRAPE_CALLBACK_HMAC_SECRET-xxxxxx"
+  }
+  task_command          = []
+  log_retention_in_days = 30
+  task_role_policy_arns = []
+}
+
+backend_serverless = {
+  app_name                       = "haksa-api"
+  lambda_package_path            = "../haksa/build/distributions/haksa-lambda.zip"
+  lambda_memory_size             = 2048
+  reserved_concurrent_executions = 100
+  lambda_environment = {
+    LOG_PATH                         = "/tmp"
+    MANAGEMENT_OTLP_TRACING_ENDPOINT = "http://localhost:4318/v1/traces"
+    SCRAPING_SCHEDULER_ENABLED       = "false"
+    SPRING_PROFILES_ACTIVE           = "prod"
+
+    # prod DB/JWT/Apple/Sentry 등 실제 운영 환경변수는 민감값이므로 실제 tfvars에서만 채운다.
+  }
+  scraping_job_queue_url            = ""
+  scraping_job_queue_arn            = ""
+  scraping_callback_hmac_secret_arn = "arn:aws:secretsmanager:ap-northeast-2:<account_id>:secret:prod/scraper/SCRAPE_CALLBACK_HMAC_SECRET-xxxxxx"
+  custom_domain_name                = "api.cchaksa.com"
+  certificate_arn                   = "arn:aws:acm:ap-northeast-2:<account_id>:certificate/<certificate-id>"
+  provisioned_concurrency           = 0
+  create_async_queue                = false
+  maintenance_schedules = {
+    enabled                        = true
+    state                          = "DISABLED"
+    stale_scrape_jobs_schedule     = "rate(5 minutes)"
+    refresh_token_cleanup_schedule = "rate(1 hour)"
+    maximum_retry_attempts         = 3
+    maximum_event_age_in_seconds   = 300
+    dlq_message_retention_seconds  = 1209600
+  }
+  grafana_cloud = {
+    enabled             = false
+    instance_id         = ""
+    otlp_endpoint       = ""
+    api_key_secret_arn  = ""
+    extension_layer_arn = ""
+    service_name        = "prod-api"
+  }
+}
+
+scrape_result_storage = {
+  enabled                          = true
+  bucket_name                      = ""
+  prefix                           = "prod/"
+  max_payload_bytes                = 2097152
+  api_call_timeout_seconds         = 30
+  api_call_attempt_timeout_seconds = 30
+}
