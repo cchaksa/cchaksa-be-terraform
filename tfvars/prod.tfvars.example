@@ -50,6 +50,7 @@ backend_serverless = {
   lambda_environment = {
     APPLE_ALLOWED_CLIENT_IDS         = "com.cchaksa.app,com.chukchukhaksa.moblie.ChukChukHaksa"
     LOG_PATH                         = "/tmp"
+    MANAGEMENT_HEALTH_DISKSPACE_ENABLED = "false"
     MANAGEMENT_OTLP_TRACING_ENDPOINT = "http://localhost:4318/v1/traces"
     SCRAPING_SCHEDULER_ENABLED       = "false"
     SPRING_PROFILES_ACTIVE           = "prod"

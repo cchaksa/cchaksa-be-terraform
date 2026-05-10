@@ -52,6 +52,7 @@
   - 신규 큐를 같은 apply에서 생성할 수 있으므로 Lambda SQS env/IAM 생성 여부는 queue ARN 값 자체가 아니라 명시 boolean 입력으로 제어한다
   - S3 기반 스크래핑 결과 저장소는 루트 변수 `scrape_result_storage`로 관리하고, bucket/prefix/timeout 환경변수는 백엔드 Lambda와 scraper worker에 공통 주입한다
   - `SCRAPING_CALLBACK_HMAC_SECRET`은 코드 저장소에 평문으로 두지 않고 Secrets Manager ARN을 통해 Lambda 환경변수로 주입한다
+  - Lambda Actuator health는 `/var/task` diskSpace 검사를 운영 정상성 기준으로 쓰지 않도록 `MANAGEMENT_HEALTH_DISKSPACE_ENABLED=false`를 명시한다
   - `develop-shadow` 백엔드 Lambda 코드는 백엔드 저장소 CI가 배포하므로 Terraform은 `aws_s3_object.lambda_package`, `aws_lambda_function.backend`의 코드 관련 속성, `aws_lambda_alias.live.function_version` 드리프트를 무시하고 인프라/환경변수만 관리한다
 
 ## 4. 브랜치/커밋/PR 규칙
