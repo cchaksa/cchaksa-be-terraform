@@ -48,12 +48,15 @@ backend_serverless = {
   lambda_memory_size             = 2048
   reserved_concurrent_executions = 100
   lambda_environment = {
-    APPLE_ALLOWED_CLIENT_IDS         = "com.cchaksa.app,com.chukchukhaksa.moblie.ChukChukHaksa"
-    LOG_PATH                         = "/tmp"
-    MANAGEMENT_HEALTH_DISKSPACE_ENABLED = "false"
-    MANAGEMENT_OTLP_TRACING_ENDPOINT = "http://localhost:4318/v1/traces"
-    SCRAPING_SCHEDULER_ENABLED       = "false"
-    SPRING_PROFILES_ACTIVE           = "prod"
+    APPLE_ALLOWED_CLIENT_IDS                = "com.cchaksa.app,com.chukchukhaksa.moblie.ChukChukHaksa"
+    LOG_PATH                                = "/tmp"
+    MANAGEMENT_HEALTH_DISKSPACE_ENABLED     = "false"
+    MANAGEMENT_OTLP_TRACING_ENDPOINT        = "http://localhost:4318/v1/traces"
+    SCRAPING_SCHEDULER_ENABLED              = "false"
+    SCRAPING_MODE                           = "async"
+    SCRAPING_PUBLISHER_ENABLED              = "true"
+    SCRAPING_CALLBACK_ALLOWED_SKEW_SECONDS = "300"
+    SPRING_PROFILES_ACTIVE                  = "prod"
 
     # prod DB/JWT/Apple/Sentry 등 실제 운영 환경변수는 민감값이므로 실제 tfvars에서만 채운다.
   }
