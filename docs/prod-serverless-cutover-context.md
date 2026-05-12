@@ -45,6 +45,10 @@
 - 2026-05-13 KST: ECS task definition 교체를 피하기 위해 Scheduler 2개만 `-target`으로 제한해 plan/apply 했다.
 - 2026-05-13 KST: targeted apply 결과 `0 added, 2 changed, 0 destroyed`로 완료되었다.
 - 2026-05-13 KST: 동일 target 범위 재실행 plan 결과 `No changes`를 확인했다.
+- 2026-05-13 KST: Scheduler 활성화 후 Lambda 로그에서 실제 invocation을 확인했다.
+  - `2026-05-12T15:20:40Z`: RequestId `a56a0345-1f0b-4440-83e2-cd1a08c7b13b`, Duration `684.68 ms`
+  - `2026-05-12T15:20:40Z`: RequestId `926a0345-1fad-43ad-85bd-3b40e57f2a6f`, Duration `1888.46 ms`
+  - `2026-05-12T15:25:39Z`: RequestId `a56a0346-4b0b-4440-83e2-cd1a08c7b13b`, Duration `175.89 ms`
 
 ## 검증 결과
 - `prod-haksa-api-scrape-job-stale-reconcile`
@@ -62,6 +66,7 @@
   - `AllowSchedulerInvoke-refresh_token_cleanup`
 - Scheduler DLQ `prod-haksa-api-maintenance-scheduler-dlq`의 즉시 적재 메시지는 0건이다.
 - targeted Terraform plan 기준 Scheduler 2개는 현재 설정과 실제 인프라가 일치한다.
+- Scheduler 실행 시간대 Lambda `START/END/REPORT` 로그가 남았고, 같은 시간대 `ERROR` 로그는 0건이다.
 
 ## 전환 계획
 - Scheduler 활성화 후 CloudWatch Logs와 Scheduler DLQ를 확인한다.
