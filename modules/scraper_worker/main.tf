@@ -143,6 +143,11 @@ resource "aws_ecs_task_definition" "worker" {
 
   depends_on = [aws_cloudwatch_log_group.worker]
 
+  lifecycle {
+    # 스크래핑 이미지 갱신은 scraper 저장소 CI가 task definition revision으로 배포한다.
+    ignore_changes = [container_definitions]
+  }
+
   tags = {
     Environment = var.environment
   }

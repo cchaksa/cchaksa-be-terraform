@@ -3,7 +3,8 @@ aws_region  = "ap-northeast-2"
 aws_profile = "prod-cchaksa"
 app_ami_id  = "ami-xxxxxxxxxxxxxxxxx"
 
-# Prod serverless pre-staging. Existing EC2/ASG/ALB traffic must remain unchanged.
+# Set false after prod serverless cutover to remove legacy EC2/ASG/ALB while keeping shared network/ACM.
+enable_legacy_backend_stack = true
 enable_scraper_async        = true
 enable_scraper_worker_infra = true
 enable_backend_serverless   = true

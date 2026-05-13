@@ -52,6 +52,7 @@ module "component" {
   app_port                = var.app_port
   app_health_path         = var.app_health_path
   app_service_name        = var.app_service_name
+  enable_app_stack        = var.enable_legacy_backend_stack
   aws_region              = var.aws_region
   app_asg_name            = "${var.environment}-app-asg"
   app_lifecycle_hook_name = "${var.environment}-app-launch-hook"

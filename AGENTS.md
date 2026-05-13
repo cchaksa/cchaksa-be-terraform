@@ -8,10 +8,10 @@
 - 운영 반영은 검증 게이트를 통과한 경우에만 수행
 
 ## 2. 현재/목표 구조
-- 현재 백엔드 구조: `EC2 + ASG(min=1) + ALB`
-- 현재 스크래핑 구조: `ECS Fargate Service(상시) + ALB`
-- 목표 스크래핑 구조: `Backend API -> SQS -> ECS RunTask(Fargate) -> Backend Result API -> DB`
-- 목표 백엔드 구조: `API Gateway + Lambda (+ 필요 시 SQS)`
+- 현재 백엔드 구조: `API Gateway + Lambda`
+- 현재 스크래핑 구조: `Backend API -> SQS -> ECS RunTask(Fargate) -> Backend Result API -> DB`
+- 레거시 백엔드 구조: `EC2 + ASG(min=1) + ALB`
+- 레거시 백엔드 상시 실행 계층은 `enable_legacy_backend_stack`으로 관리하며, prod 전환 완료 후에는 `false`로 유지한다
 
 ## 3. 모듈 구조
 - `component/`: 기존 운영 인프라 모듈
@@ -23,6 +23,7 @@
 - `tfvars/develop-shadow.tfvars.example`: develop-shadow 적용 전용 변수 예시 파일(실제 `tfvars/develop-shadow.tfvars`는 민감값 포함 가능성이 있어 Git에 올리지 않음)
 - `tfvars/prod.tfvars.example`: prod 서버리스 병행 리소스 사전 세팅 예시 파일(실제 `tfvars/prod.tfvars`는 민감값 포함 가능성이 있어 Git에 올리지 않음)
 - shadow 상태를 사용할 때는 `environment=develop-shadow`, `enable_develop=false`로 설정하고 루트에서 `module.component`를 비활성화한다
+- prod에서 `enable_legacy_backend_stack=false`로 설정하면 `component` 모듈의 VPC/Subnet/ACM/공유 SG는 유지하고 EC2/ASG/ALB 계층만 제거한다
 - 스크래핑 모듈 입력 원칙:
   - 루트 변수 `scraper_async` 객체 1개로 최소 필수값만 전달
   - 워커 리소스 자동 생성 시 루트 변수 `scraper_worker` 객체 사용
