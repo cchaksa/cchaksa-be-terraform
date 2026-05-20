@@ -34,7 +34,7 @@ locals {
     local.maintenance_schedules_enabled ? {
       SCRAPING_SCHEDULER_ENABLED = "false"
     } : {},
-    trimspace(var.scraping_job_queue_url) != "" ? {
+    var.scraping_job_queue_access_enabled ? {
       SCRAPING_JOB_QUEUE_URL = var.scraping_job_queue_url
     } : {},
     local.scraping_callback_hmac_secret != null ? {
@@ -98,7 +98,7 @@ resource "aws_iam_role_policy_attachment" "lambda_xray_daemon_write" {
 }
 
 data "aws_iam_policy_document" "lambda_scraping_queue_access" {
-  count = trimspace(var.scraping_job_queue_arn) != "" ? 1 : 0
+  count = var.scraping_job_queue_access_enabled ? 1 : 0
 
   statement {
     sid    = "AllowScrapingQueueSend"
@@ -113,7 +113,7 @@ data "aws_iam_policy_document" "lambda_scraping_queue_access" {
 }
 
 resource "aws_iam_role_policy" "lambda_scraping_queue_access" {
-  count = trimspace(var.scraping_job_queue_arn) != "" ? 1 : 0
+  count = var.scraping_job_queue_access_enabled ? 1 : 0
 
   name   = "${var.environment}-${var.app_name}-sqs-send"
   role   = aws_iam_role.lambda_exec.id

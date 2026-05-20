@@ -58,6 +58,7 @@ backend_serverless = {
     JWT_REFRESH_EXPIRATION                  = "1209600000"
     JWT_SECRET                              = "<jwt-secret>"
     LOG_PATH                                = "/tmp"
+    MANAGEMENT_HEALTH_DISKSPACE_ENABLED     = "false"
     MANAGEMENT_TRACING_SAMPLING_PROBABILITY = "1.0"
     REDIS_ENCRYPT_KEY                       = "<redis-encrypt-key>"
     SCRAPING_SCHEDULER_ENABLED              = "false"

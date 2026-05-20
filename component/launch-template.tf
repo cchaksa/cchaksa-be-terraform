@@ -1,6 +1,8 @@
 resource "aws_launch_template" "app" {
+  count = var.enable_app_stack ? 1 : 0
+
   name_prefix   = "${var.environment}-app-"
-  image_id      = coalesce(var.app_ami_id, data.aws_ami.app.id)
+  image_id      = var.app_ami_id != null ? var.app_ami_id : data.aws_ami.app[0].id
   instance_type = "t3.small"
   user_data = base64encode(templatefile("${path.module}/user-data/app-user-data.sh.tmpl", {
     asg_name            = var.app_asg_name
@@ -13,7 +15,7 @@ resource "aws_launch_template" "app" {
   }))
 
   iam_instance_profile {
-    name = aws_iam_instance_profile.ec2.name
+    name = aws_iam_instance_profile.ec2[0].name
   }
 
   network_interfaces {
