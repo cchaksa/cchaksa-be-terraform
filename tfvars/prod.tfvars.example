@@ -53,6 +53,7 @@ backend_serverless = {
     LOG_PATH                                = "/tmp"
     MANAGEMENT_HEALTH_DISKSPACE_ENABLED     = "false"
     MANAGEMENT_OTLP_TRACING_ENDPOINT        = "http://localhost:4318/v1/traces"
+    JWT_REFRESH_EXPIRATION                  = "5184000000"
     SCRAPING_SCHEDULER_ENABLED              = "false"
     SCRAPING_MODE                           = "async"
     SCRAPING_PUBLISHER_ENABLED              = "true"
