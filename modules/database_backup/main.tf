@@ -52,6 +52,77 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "database_backup" 
   }
 }
 
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+
+  tags = local.common_tags
+}
+
+data "aws_iam_policy_document" "github_actions_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github_actions.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    # The backend workflow declares `environment: prod`, so GitHub emits the
+    # environment subject instead of a branch subject for this OIDC token.
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:cchaksa/cchaksa-backend:environment:prod"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_database_backup" {
+  name               = "${var.environment}-github-db-backup-role"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
+
+  tags = local.common_tags
+}
+
+data "aws_iam_policy_document" "github_database_backup_s3_access" {
+  statement {
+    sid    = "InspectBackupBucket"
+    effect = "Allow"
+    actions = [
+      "s3:GetBucketLocation",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads"
+    ]
+    resources = [aws_s3_bucket.database_backup.arn]
+  }
+
+  statement {
+    sid    = "WriteAndVerifyBackupObjects"
+    effect = "Allow"
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:GetObject",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject"
+    ]
+    resources = ["${aws_s3_bucket.database_backup.arn}/supabase-db/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_database_backup_s3_access" {
+  name   = "${var.environment}-github-db-backup-s3-access"
+  role   = aws_iam_role.github_database_backup.id
+  policy = data.aws_iam_policy_document.github_database_backup_s3_access.json
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "database_backup" {
   bucket = aws_s3_bucket.database_backup.id
 

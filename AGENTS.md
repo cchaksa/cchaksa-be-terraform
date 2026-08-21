@@ -18,7 +18,7 @@
 - `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask + ECR 연동)
 - `modules/scraper_worker/`: 스크래핑 워커 실행 모듈(ECS Cluster/TaskDefinition/IAM/Logs)
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
-- `modules/database_backup/`: prod Supabase DB backup 전용 S3 버킷 모듈
+- `modules/database_backup/`: prod Supabase DB backup 전용 S3 버킷 및 GitHub OIDC IAM Role 모듈
 - `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
 - `tfvars/develop-shadow.tfvars`: develop-shadow 적용 전용 변수 파일
 - shadow 상태를 사용할 때는 `environment=develop-shadow`, `enable_develop=false`로 설정하고 루트에서 `module.component`를 비활성화한다

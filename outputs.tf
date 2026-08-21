@@ -49,3 +49,7 @@ output "database_backup_bucket_name" {
 output "database_backup_bucket_arn" {
   value = var.environment == "prod" ? module.database_backup[0].bucket_arn : null
 }
+
+output "database_backup_github_oidc_role_arn" {
+  value = var.environment == "prod" ? module.database_backup[0].github_oidc_role_arn : null
+}

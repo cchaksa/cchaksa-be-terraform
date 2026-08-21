@@ -63,3 +63,11 @@
 
 - GitHub OIDC provider와 prod backup IAM Role은 사용자가 별도로 구성한다.
 - GitHub `prod` Environment의 Supabase Session Pooler URL과 GPG passphrase는 사용자가 별도로 설정한다.
+
+## 정정 및 추가 작업
+
+- 2026-08-21: 사용자 요청으로 GitHub OIDC provider와 prod backup IAM Role을 Terraform 범위에 추가한다.
+- backend backup workflow는 `environment: prod`를 사용하므로 GitHub OIDC `sub` claim은 branch subject가 아니라 `repo:cchaksa/cchaksa-backend:environment:prod`로 제한한다.
+- Role에는 backup bucket의 `supabase-db/*`에 대한 upload, object size 검증, multipart upload 정리에 필요한 최소 S3 권한만 부여하며 `s3:DeleteObject`는 부여하지 않는다.
+- GitHub `prod` Environment는 `dev` 브랜치만 해당 Environment를 사용할 수 있도록 deployment branch protection을 별도로 설정해야 한다.
+- 로컬에 prod AWS profile이 없어 OIDC provider의 기존 존재 여부를 확인하지 못했다. apply에서 이미 존재한다면 `aws_iam_openid_connect_provider.github_actions` 리소스를 import한 뒤 재실행한다.
