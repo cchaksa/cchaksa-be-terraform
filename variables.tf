@@ -25,6 +25,12 @@ variable "enable_develop" {
   default     = true
 }
 
+variable "enable_legacy_backend_stack" {
+  description = "기존 EC2/ASG/ALB 기반 백엔드 상시 실행 계층 활성화"
+  type        = bool
+  default     = true
+}
+
 variable "app_ami_id" {
   description = "선택값: 지정하면 해당 AMI를 사용, null이면 기본 AMI 검색 결과 사용"
   type        = string
@@ -168,6 +174,8 @@ variable "backend_serverless" {
   type = object({
     app_name                          = string
     lambda_package_path               = string
+    lambda_memory_size                = number
+    reserved_concurrent_executions    = number
     lambda_environment                = map(string)
     scraping_job_queue_url            = string
     scraping_job_queue_arn            = string
@@ -176,6 +184,15 @@ variable "backend_serverless" {
     certificate_arn                   = string
     provisioned_concurrency           = number
     create_async_queue                = bool
+    maintenance_schedules = object({
+      enabled                        = bool
+      state                          = string
+      stale_scrape_jobs_schedule     = string
+      refresh_token_cleanup_schedule = string
+      maximum_retry_attempts         = number
+      maximum_event_age_in_seconds   = number
+      dlq_message_retention_seconds  = number
+    })
     grafana_cloud = object({
       enabled             = bool
       instance_id         = string
@@ -188,6 +205,8 @@ variable "backend_serverless" {
   default = {
     app_name                          = "haksa-serverless"
     lambda_package_path               = ""
+    lambda_memory_size                = 1024
+    reserved_concurrent_executions    = -1
     lambda_environment                = {}
     scraping_job_queue_url            = ""
     scraping_job_queue_arn            = ""
@@ -196,6 +215,15 @@ variable "backend_serverless" {
     certificate_arn                   = ""
     provisioned_concurrency           = 0
     create_async_queue                = false
+    maintenance_schedules = {
+      enabled                        = false
+      state                          = "DISABLED"
+      stale_scrape_jobs_schedule     = "rate(5 minutes)"
+      refresh_token_cleanup_schedule = "rate(1 hour)"
+      maximum_retry_attempts         = 3
+      maximum_event_age_in_seconds   = 300
+      dlq_message_retention_seconds  = 1209600
+    }
     grafana_cloud = {
       enabled             = false
       instance_id         = ""
@@ -224,6 +252,33 @@ variable "backend_serverless" {
       trimspace(var.backend_serverless.grafana_cloud.extension_layer_arn) != ""
     )
     error_message = "backend_serverless.grafana_cloud.enabled=true 인 경우 instance_id, otlp_endpoint, api_key_secret_arn, extension_layer_arn를 모두 설정해야 한다."
+  }
+}
+
+variable "scrape_result_storage" {
+  description = "스크래핑 결과 저장 버킷 토글/설정"
+  type = object({
+    enabled                          = bool
+    bucket_name                      = string
+    prefix                           = string
+    max_payload_bytes                = optional(number, 2097152)
+    api_call_timeout_seconds         = optional(number, 30)
+    api_call_attempt_timeout_seconds = optional(number, 30)
+  })
+  default = {
+    enabled     = false
+    bucket_name = ""
+    prefix      = ""
+  }
+
+  validation {
+    condition = !var.scrape_result_storage.enabled || (
+      var.scrape_result_storage.max_payload_bytes > 0 &&
+      var.scrape_result_storage.api_call_timeout_seconds > 0 &&
+      var.scrape_result_storage.api_call_attempt_timeout_seconds > 0 &&
+      var.scrape_result_storage.api_call_attempt_timeout_seconds <= var.scrape_result_storage.api_call_timeout_seconds
+    )
+    error_message = "scrape_result_storage timeout/max payload 값은 양수여야 하며 api_call_attempt_timeout_seconds는 api_call_timeout_seconds보다 클 수 없다."
   }
 }
 # endregion

@@ -1,4 +1,6 @@
 resource "aws_lb_target_group" "app" {
+  count = var.enable_app_stack ? 1 : 0
+
   name     = "${var.environment}-app-tg"
   port     = 80
   protocol = "HTTP"

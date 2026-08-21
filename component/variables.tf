@@ -17,6 +17,12 @@ variable "enable" {
   default     = true
 }
 
+variable "enable_app_stack" {
+  description = "EC2/ASG/ALB 기반 백엔드 상시 실행 계층 생성 여부"
+  type        = bool
+  default     = true
+}
+
 variable "app_ami_id" {
   description = "선택값: 지정하면 해당 AMI를 사용, null이면 기본 AMI 검색 결과 사용"
   type        = string
