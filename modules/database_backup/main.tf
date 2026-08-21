@@ -57,6 +57,10 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   client_id_list = ["sts.amazonaws.com"]
 
   tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
 }
 
 data "aws_iam_policy_document" "github_actions_assume_role" {
