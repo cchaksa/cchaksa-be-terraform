@@ -52,6 +52,8 @@ output "database_backup_bucket_arn" {
 
 output "database_backup_github_oidc_role_arn" {
   value = var.environment == "prod" ? module.database_backup[0].github_oidc_role_arn : null
+}
+
 output "backend_serverless_maintenance_scheduler_names" {
   value = var.enable_backend_serverless ? module.backend_serverless[0].maintenance_scheduler_names : []
 }
