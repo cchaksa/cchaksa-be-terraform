@@ -18,6 +18,7 @@
 - `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask + ECR 연동)
 - `modules/scraper_worker/`: 스크래핑 워커 실행 모듈(ECS Cluster/TaskDefinition/IAM/Logs)
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
+- `modules/database_backup/`: prod Supabase DB backup 전용 S3 버킷 및 GitHub OIDC IAM Role 모듈
 - `scrape_result_storage`: 스크래핑 결과 저장 버킷(S3 + IAM + env 주입, develop-shadow/prod 승인 적용)
 - `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
 - `tfvars/develop-shadow.tfvars.example`: develop-shadow 적용 전용 변수 예시 파일(실제 `tfvars/develop-shadow.tfvars`는 민감값 포함 가능성이 있어 Git에 올리지 않음)

@@ -42,6 +42,16 @@ output "backend_serverless_custom_domain_hosted_zone_id" {
   value = var.enable_backend_serverless ? module.backend_serverless[0].custom_domain_hosted_zone_id : null
 }
 
+output "database_backup_bucket_name" {
+  value = var.environment == "prod" ? module.database_backup[0].bucket_name : null
+}
+
+output "database_backup_bucket_arn" {
+  value = var.environment == "prod" ? module.database_backup[0].bucket_arn : null
+}
+
+output "database_backup_github_oidc_role_arn" {
+  value = var.environment == "prod" ? module.database_backup[0].github_oidc_role_arn : null
 output "backend_serverless_maintenance_scheduler_names" {
   value = var.enable_backend_serverless ? module.backend_serverless[0].maintenance_scheduler_names : []
 }

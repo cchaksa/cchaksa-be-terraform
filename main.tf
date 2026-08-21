@@ -111,6 +111,14 @@ module "backend_serverless" {
   grafana_cloud                     = var.backend_serverless.grafana_cloud
 }
 
+module "database_backup" {
+  source = "./modules/database_backup"
+  count  = var.environment == "prod" ? 1 : 0
+
+  environment = var.environment
+  aws_region  = var.aws_region
+}
+  
 resource "aws_s3_bucket" "scrape_results" {
   count = local.scrape_result_enabled ? 1 : 0
 
