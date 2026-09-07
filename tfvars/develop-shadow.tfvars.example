@@ -3,7 +3,6 @@ aws_profile                 = "prod-cchaksa"
 enable_develop              = false
 enable_scraper_async        = true
 enable_scraper_worker_infra = true
-enable_scraper_login_service = true
 enable_backend_serverless   = true
 
 scraper_worker = {
@@ -39,8 +38,6 @@ scraper_async = {
   name_prefix             = "develop-shadow-scraper"
   assign_public_ip        = "ENABLED"
 }
-
-scraper_login_service = { subnet_ids = ["<subnet-a>", "<subnet-b>"], cpu = 1024, memory = 2048, desired_count = 1, log_retention_in_days = 30 }
 
 backend_serverless = {
   app_name                       = "develop-shadow-api"

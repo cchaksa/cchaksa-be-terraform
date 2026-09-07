@@ -37,4 +37,3 @@ output "maintenance_scheduler_names" {
 output "maintenance_scheduler_dlq_arn" {
   value = var.maintenance_schedules.enabled ? aws_sqs_queue.maintenance_scheduler_dlq[0].arn : null
 }
-output "api_id" { value = aws_apigatewayv2_api.http_api.id }

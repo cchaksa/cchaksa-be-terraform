@@ -33,8 +33,7 @@ locals {
     SCRAPING_RESULT_API_CALL_ATTEMPT_TIMEOUT_SECONDS = tostring(var.scrape_result_storage.api_call_attempt_timeout_seconds)
   } : {}
   scraper_worker_task_environment       = merge(var.scraper_worker.task_environment, local.scrape_result_environment)
-  scraper_login_base_url                = trimspace(var.backend_serverless.custom_domain_name) != "" ? "https://${var.backend_serverless.custom_domain_name}/internal/scraper" : "${module.backend_serverless[0].api_endpoint}/internal/scraper"
-  backend_serverless_lambda_environment = merge(var.backend_serverless.lambda_environment, local.scrape_result_environment, var.enable_scraper_login_service ? { CRAWLER_BASE_URL = local.scraper_login_base_url } : {})
+  backend_serverless_lambda_environment = merge(var.backend_serverless.lambda_environment, local.scrape_result_environment)
   scraper_worker_task_role_name         = local.scrape_result_enabled && var.enable_scraper_async && var.enable_scraper_worker_infra ? element(split("/", module.scraper_worker[0].task_role_arn), length(split("/", module.scraper_worker[0].task_role_arn)) - 1) : null
   backend_serverless_lambda_role_name   = local.scrape_result_enabled && var.enable_backend_serverless ? element(split("/", module.backend_serverless[0].lambda_role_arn), length(split("/", module.backend_serverless[0].lambda_role_arn)) - 1) : null
 }
@@ -90,25 +89,6 @@ module "scraper_async" {
   assign_public_ip        = var.scraper_async.assign_public_ip
 }
 
-module "scraper_login_service" {
-  source                   = "./modules/scraper_login_service"
-  count                    = var.enable_scraper_login_service ? 1 : 0
-  environment              = var.environment
-  aws_region               = var.aws_region
-  name_prefix              = var.scraper_worker.name_prefix
-  image_uri                = var.scraper_worker.image_uri
-  ecs_cluster_arn          = module.scraper_worker[0].ecs_cluster_arn
-  execution_role_arn       = module.scraper_worker[0].execution_role_arn
-  task_role_arn            = module.scraper_worker[0].task_role_arn
-  subnet_ids               = var.scraper_login_service.subnet_ids
-  api_id                   = module.backend_serverless[0].api_id
-  internal_auth_secret_arn = var.backend_serverless.scraping_callback_hmac_secret_arn
-  cpu                      = var.scraper_login_service.cpu
-  memory                   = var.scraper_login_service.memory
-  desired_count            = var.scraper_login_service.desired_count
-  log_retention_in_days    = var.scraper_login_service.log_retention_in_days
-}
-
 module "backend_serverless" {
   source = "./modules/backend_serverless"
   count  = var.enable_backend_serverless ? 1 : 0
@@ -138,7 +118,7 @@ module "database_backup" {
   environment = var.environment
   aws_region  = var.aws_region
 }
-
+  
 resource "aws_s3_bucket" "scrape_results" {
   count = local.scrape_result_enabled ? 1 : 0
 

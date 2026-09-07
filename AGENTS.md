@@ -17,7 +17,6 @@
 - `component/`: 기존 운영 인프라 모듈
 - `modules/scraper_async/`: 스크래핑 비동기 전환 모듈(SQS/DLQ/Pipe/RunTask + ECR 연동)
 - `modules/scraper_worker/`: 스크래핑 워커 실행 모듈(ECS Cluster/TaskDefinition/IAM/Logs)
-- `modules/scraper_login_service/`: API Gateway VPC Link 기반 동기 포털 로그인 ECS Service
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
 - `modules/database_backup/`: prod Supabase DB backup 전용 S3 버킷 및 GitHub OIDC IAM Role 모듈
 - `scrape_result_storage`: 스크래핑 결과 저장 버킷(S3 + IAM + env 주입, develop-shadow/prod 승인 적용)

@@ -162,19 +162,6 @@ variable "scraper_async" {
 }
 # endregion
 
-variable "enable_scraper_login_service" {
-  type    = bool
-  default = false
-}
-variable "scraper_login_service" {
-  type    = object({ subnet_ids = list(string), cpu = number, memory = number, desired_count = number, log_retention_in_days = number })
-  default = { subnet_ids = [], cpu = 1024, memory = 2048, desired_count = 1, log_retention_in_days = 30 }
-  validation {
-    condition     = !var.enable_scraper_login_service || (var.enable_scraper_worker_infra && var.enable_backend_serverless && length(var.scraper_login_service.subnet_ids) >= 2)
-    error_message = "동기 로그인 서비스는 worker/backend infra와 2개 이상의 subnet이 필요하다."
-  }
-}
-
 # region 백엔드 서버리스 전환
 variable "enable_backend_serverless" {
   description = "백엔드 서버리스 인프라(API Gateway + Lambda) 활성화"
