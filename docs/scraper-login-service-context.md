@@ -1,6 +1,6 @@
 # 동기 스크래퍼 로그인 서비스 Context
 
-- 상태: validated
+- 상태: in-progress
 
 ## 배경
 2026-09-07 develop-shadow `/portal/login`은 삭제된 ALB DNS로 인해 실패했다.
@@ -21,7 +21,7 @@ IaC 생성, scraper와 BE 계약 변경, develop-shadow plan/apply, health와 �
 2026-09-07 scraper ECS Service, scraper Lambda/API Gateway가 없음을 확인했다.
 
 ## 검증 결과
-2026-09-07 develop-shadow에서 Terraform apply `12 added, 1 changed, 0 destroyed`를 확인했다. ECS Service는 desired/running `1/1`, rollout `COMPLETED`다. 무인증 내부 route는 403, 인증 header를 포함한 잘못된 포털 계정은 401을 반환해 실제 포털 검증까지 도달함을 확인했다.
+후속 기록한다.
 
 ## 전환 계획
 develop-shadow에만 적용한다.

@@ -112,9 +112,6 @@ resource "aws_ecs_task_definition" "login" {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
   }
-  lifecycle {
-    ignore_changes = [container_definitions]
-  }
   tags = { Environment = var.environment }
 }
 
@@ -136,10 +133,7 @@ resource "aws_ecs_service" "login" {
   }
   health_check_grace_period_seconds = 60
   depends_on                        = [aws_lb_listener.http]
-  lifecycle {
-    ignore_changes = [task_definition]
-  }
-  tags = { Environment = var.environment }
+  tags                              = { Environment = var.environment }
 }
 
 resource "aws_apigatewayv2_vpc_link" "login" {
