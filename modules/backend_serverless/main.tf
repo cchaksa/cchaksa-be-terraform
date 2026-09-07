@@ -39,6 +39,7 @@ locals {
     } : {},
     local.scraping_callback_hmac_secret != null ? {
       SCRAPING_CALLBACK_HMAC_SECRET = local.scraping_callback_hmac_secret
+      SCRAPER_INTERNAL_AUTH_TOKEN   = local.scraping_callback_hmac_secret
     } : {},
     local.grafana_cloud_enabled ? {
       GRAFANA_CLOUD_INSTANCE_ID              = var.grafana_cloud.instance_id
