@@ -7,7 +7,9 @@ This Terraform root owns only the production admin SPA resources. It deliberatel
 - State key: `terraform/admin-web/prod/terraform.tfstate`.
 - Managed resources: admin SPA S3 bucket, ACM certificate request, CloudFront OAC/function/distribution, S3 bucket policy, deployment IAM policy.
 - Referenced only: the existing `api.cchaksa.com` API Gateway custom domain.
-- Not managed: product Lambda/API Gateway, product state, Cloudflare DNS, Kakao application settings, secret values.
+- Not managed: product Lambda/API Gateway, product state, Cloudflare DNS, application authentication data, secret values.
+
+Admin authentication uses local `loginId` and password credentials in both dev and prod. External OAuth/OIDC provider registration, redirect URIs, and provider-specific keys or secrets are not infrastructure prerequisites. Consumer authentication is outside this Terraform root's ownership boundary.
 
 ## Bootstrap Apply
 

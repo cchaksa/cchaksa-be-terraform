@@ -15,6 +15,20 @@
 - Cloudflare DNS는 이 Terraform root에서 관리하지 않는다. ACM 검증 CNAME과 최종 admin CNAME은 수동으로 등록한다.
 - 기존 GitHub Actions static key 인증을 우선 사용하고, Terraform은 기존 IAM principal을 수정하지 않은 채 attach 가능한 최소 배포 policy만 생성한다.
 - 배포 중 기존 index가 참조하는 파일을 잃지 않도록 hash asset은 누적 보존하고 `index.html`을 마지막에 교체한다.
+- 관리자 인증은 dev/prod 모두 로컬 `loginId`/password 방식을 사용한다. 관리자용 외부 OAuth/OIDC provider, redirect URI와 provider key/secret은 인프라·배포 요구사항이 아니다.
+- 일반 사용자 인증은 이 관리자 인프라 root의 범위 밖이며 변경하지 않는다.
+
+## 환경별 도메인 결정
+
+| 환경 | 관리자 웹 도메인 | API origin | 관리자 인증 |
+| --- | --- | --- | --- |
+| dev | `https://dev.admin.cchaksa.com` | `dev.api.cchaksa.com` | 로컬 `loginId`/password |
+| prod | `https://admin.cchaksa.com` | `api.cchaksa.com` | 로컬 `loginId`/password |
+
+- 현재 적용된 `admin-web/` state는 prod 전용이며 그대로 보존한다.
+- dev는 기존 prod resource를 재사용하거나 수정하지 않고 별도 private S3, CloudFront, `us-east-1` ACM 인증서와 state를 사용한다.
+- dev state key 후보는 `terraform/admin-web/dev/terraform.tfstate`다. 실제 구현 전 add-only plan과 기존 prod state 무변경을 다시 확인한다.
+- Cloudflare가 `cchaksa.com`의 권한 DNS이므로 Route 53 hosted zone은 만들거나 안내하지 않는다.
 
 ## 단계적 적용
 
@@ -30,13 +44,14 @@
 - DNS 전환 전에는 신규 CloudFront가 운영 트래픽을 받지 않는다.
 - CloudFront와 S3에는 삭제 방지 설정을 두어 실수로 destroy되지 않게 한다.
 
-## 외부 작업
+## 사용자 작업과 실행 순서
 
-- Cloudflare ACM validation CNAME 등록.
-- Cloudflare `admin.cchaksa.com` CNAME 등록.
-- Kakao Developers에 `https://admin.cchaksa.com` 허용 도메인과 redirect URI 등록.
-- 기존 GitHub Actions AWS principal에 `deploy_policy_arn` 연결.
-- 실제 관리자 계정과 안전한 문의 데이터로 로그인, 조회, 답변 등록 E2E 수행.
+1. 사용자가 Cloudflare 로그인, MFA 또는 CAPTCHA를 완료한다.
+2. Codex가 `admin.cchaksa.com`을 prod CloudFront domain으로 연결하는 CNAME을 `DNS only`로 등록하고 SPA/API behavior를 검증한다.
+3. Codex가 별도 dev state로 private S3와 ACM을 add-only 적용한다.
+4. dev ACM 요청 뒤 사용자가 Cloudflare 로그인을 유지하면 Codex가 별도 검증 CNAME을 `DNS only`로 등록한다.
+5. Codex가 dev 인증서 `ISSUED`를 확인하고 dev CloudFront를 적용한 뒤 `dev.admin.cchaksa.com` service CNAME을 `DNS only`로 등록한다.
+6. 로컬 관리자 계정으로 dev/prod 로그인, 문의 조회와 답변 등록 E2E를 검증한다.
 
 ## 2026-09-30 적용 기록
 
@@ -45,10 +60,9 @@
 - 적용 대상은 private S3와 보호 설정, ACM 인증서 요청, CloudFront OAC와 SPA function, 어드민 배포 IAM policy다.
 - 적용 직후 재계획은 `No changes`였다.
 - S3 Public Access Block 네 항목이 모두 활성화된 것을 확인했다.
-- CloudFront 2차 plan은 어드민 state 내부에서 `2 add / 1 change / 0 destroy`다. 1 change는 신규 배포 policy에 신규 distribution invalidation 권한을 추가하는 변경이다.
-- ACM 인증서는 Cloudflare validation CNAME 등록 전이므로 `PENDING_VALIDATION`이다. 이 상태에서는 CloudFront plan을 적용하지 않는다.
+- CloudFront 2차 preflight plan은 어드민 state 내부에서 `2 add / 1 change / 0 destroy`였다. 1 change는 신규 배포 policy에 신규 distribution invalidation 권한을 추가하는 변경이었다.
+- 당시 ACM 인증서는 Cloudflare validation CNAME 등록 전이라 `PENDING_VALIDATION`이었으며 CloudFront plan을 적용하지 않았다.
 - 백엔드 저장소 GitHub variable `ADMIN_WEB_S3_BUCKET`을 등록했다. distribution 생성 후 `ADMIN_WEB_CLOUDFRONT_DISTRIBUTION_ID`를 추가해야 한다.
-- 운영 Lambda에는 관리자 Kakao 환경변수 이름이 아직 등록되어 있지 않다. 기존 Lambda 설정은 이 독립 state에서 변경하지 않았다.
 
 검증 결과:
 
@@ -59,3 +73,13 @@
 - bootstrap `terraform apply`: `9 added / 0 changed / 0 destroyed`.
 - post-apply `terraform plan`: `No changes`.
 - CloudFront preflight `terraform plan`: `2 add / 1 change / 0 destroy`, 미적용.
+
+## 2026-10-01 적용 및 정규화 기록
+
+- prod ACM `ISSUED` 확인 후 CloudFront saved plan `2 add / 1 change / 0 destroy`를 적용했다.
+- prod CloudFront는 `Deployed` 상태이며 `admin.cchaksa.com` alias, private S3 default origin, `api.cchaksa.com`의 `/api/admin/*` behavior와 SPA rewrite Function 연결을 확인했다.
+- 최초 생성 시 잘못된 AWS 관리형 cache policy ID를 수정하고 새 saved plan을 다시 검토했다. 해당 수정은 커밋 `1febad2`에 기록했다.
+- 최초 post-apply plan의 `0 add / 3 change / 0 destroy`는 OAC S3 origin에 남아 있던 빈 legacy `s3_origin_config` 블록을 provider가 state에서 제거하면서 CloudFront origin 전체가 달라 보인 결과였다.
+- CloudFront가 변경으로 표시되자 distribution ARN을 참조하는 S3 bucket policy와 배포 IAM policy가 `unknown`으로 연쇄 표시됐다. 두 policy의 현재 JSON에는 의미 차이가 없었다.
+- 빈 legacy 블록을 HCL에서 제거한 뒤 `terraform plan`은 `No changes`로 수렴했다. 실제 AWS drift가 아니며 후속 apply는 필요하지 않다.
+- Cloudflare 세션이 로그인되지 않아 prod service CNAME 등록과 운영 도메인 검증은 대기 중이다.
