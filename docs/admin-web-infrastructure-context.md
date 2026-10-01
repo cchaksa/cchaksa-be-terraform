@@ -27,7 +27,7 @@
 
 - 현재 적용된 `admin-web/` state는 prod 전용이며 그대로 보존한다.
 - dev는 기존 prod resource를 재사용하거나 수정하지 않고 별도 private S3, CloudFront, `us-east-1` ACM 인증서와 state를 사용한다.
-- dev state key 후보는 `terraform/admin-web/dev/terraform.tfstate`다. 실제 구현 전 add-only plan과 기존 prod state 무변경을 다시 확인한다.
+- dev state key는 `terraform/admin-web/dev/terraform.tfstate`다. 최초 적용 전 add-only plan과 기존 prod state 무변경을 다시 확인한다.
 - Cloudflare가 `cchaksa.com`의 권한 DNS이므로 Route 53 hosted zone은 만들거나 안내하지 않는다.
 
 ## 단계적 적용
@@ -82,4 +82,24 @@
 - 최초 post-apply plan의 `0 add / 3 change / 0 destroy`는 OAC S3 origin에 남아 있던 빈 legacy `s3_origin_config` 블록을 provider가 state에서 제거하면서 CloudFront origin 전체가 달라 보인 결과였다.
 - CloudFront가 변경으로 표시되자 distribution ARN을 참조하는 S3 bucket policy와 배포 IAM policy가 `unknown`으로 연쇄 표시됐다. 두 policy의 현재 JSON에는 의미 차이가 없었다.
 - 빈 legacy 블록을 HCL에서 제거한 뒤 `terraform plan`은 `No changes`로 수렴했다. 실제 AWS drift가 아니며 후속 apply는 필요하지 않다.
-- Cloudflare 세션이 로그인되지 않아 prod service CNAME 등록과 운영 도메인 검증은 대기 중이다.
+- 당시 Cloudflare 세션이 로그인되지 않아 prod service CNAME 등록과 운영 도메인 검증을 일시 중단했다.
+
+Prod DNS 후속 검증:
+
+- 사용자가 `admin.cchaksa.com` service CNAME을 Cloudflare `DNS only`로 등록했다.
+- 권한 DNS와 public resolver에서 동일 CloudFront target, TTL 300과 정상 TLS를 확인했다.
+- `/api/admin/auth/me`는 CloudFront를 통해 `401 application/json`을 반환해 API 오류가 SPA HTML로 치환되지 않음을 확인했다.
+- `/`는 `403 AmazonS3`를 반환했다. CloudFront routing은 정상이며 SPA object는 아직 배포되지 않았다.
+
+## 2026-10-01 dev bootstrap 적용 기록
+
+- dev backend key를 `terraform/admin-web/dev/terraform.tfstate`로 분리하고 `environment=dev`, `dev.admin.cchaksa.com`, `dev.api.cchaksa.com` 전용 입력을 추가했다.
+- 적용 전 dev state key가 비어 있고 기존 prod state 주소가 유지됨을 확인했다.
+- bootstrap saved plan은 `9 add / 0 change / 0 destroy`였고 create 대상이 모두 dev 이름과 tag를 사용하는지 JSON으로 검토했다.
+- private S3와 보호 설정, `us-east-1` ACM 요청, dev OAC, SPA rewrite Function, dev 배포 IAM policy를 적용했다.
+- apply 결과는 `9 added / 0 changed / 0 destroyed`였고 post-apply plan은 `No changes`였다.
+- dev ACM은 `PENDING_VALIDATION`이며 Cloudflare에 다음 CNAME을 `DNS only`로 등록해야 한다.
+  - Name: `_8282fa83b79d39705aba28fb8a3a5ee7.dev.admin.cchaksa.com`.
+  - Type: `CNAME`.
+  - Target: `_17b392618952a2f32fda8ea0dc1ac2b1.wzccmgtwzk.acm-validations.aws`.
+- Cloudflare 세션이 로그인되지 않아 검증 CNAME 등록 전 중단했다. dev CloudFront plan/apply는 인증서 `ISSUED` 전까지 수행하지 않는다.
