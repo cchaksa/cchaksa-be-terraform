@@ -46,12 +46,10 @@
 
 ## 사용자 작업과 실행 순서
 
-1. 사용자가 Cloudflare 로그인, MFA 또는 CAPTCHA를 완료한다.
-2. Codex가 `admin.cchaksa.com`을 prod CloudFront domain으로 연결하는 CNAME을 `DNS only`로 등록하고 SPA/API behavior를 검증한다.
-3. Codex가 별도 dev state로 private S3와 ACM을 add-only 적용한다.
-4. dev ACM 요청 뒤 사용자가 Cloudflare 로그인을 유지하면 Codex가 별도 검증 CNAME을 `DNS only`로 등록한다.
-5. Codex가 dev 인증서 `ISSUED`를 확인하고 dev CloudFront를 적용한 뒤 `dev.admin.cchaksa.com` service CNAME을 `DNS only`로 등록한다.
-6. 로컬 관리자 계정으로 dev/prod 로그인, 문의 조회와 답변 등록 E2E를 검증한다.
+1. Prod와 dev의 ACM 검증 CNAME 및 service CNAME 등록은 완료됐다.
+2. Prod와 dev 모두 CloudFront를 통한 `/api/admin/*` JSON 오류 전달을 확인했다.
+3. FE/BE 배포 스레드에서 SPA object와 로컬 관리자 인증 서버를 배포한다.
+4. 로컬 관리자 계정으로 dev/prod 로그인, 문의 조회와 답변 등록 E2E를 검증한다.
 
 ## 2026-09-30 적용 기록
 
@@ -113,4 +111,13 @@ Dev 인증서 및 CloudFront 후속:
 - dev CloudFront는 `Deployed` 상태이며 `dev.admin.cchaksa.com` alias, private dev S3 origin, `dev.api.cchaksa.com`의 `/api/admin/*` behavior와 dev SPA rewrite Function 연결을 확인했다.
 - dev CloudFront service CNAME target은 `d14a6typxgzidb.cloudfront.net`이다.
 - apply 후 dev와 prod plan 모두 `No changes`였다.
-- Cloudflare 세션이 로그인되지 않아 `dev.admin.cchaksa.com` service CNAME 등록 전 중단했다.
+- 당시 Cloudflare 세션이 로그인되지 않아 `dev.admin.cchaksa.com` service CNAME 등록 전 일시 중단했다.
+
+## 2026-10-02 dev DNS 검증 및 인프라 완료
+
+- 사용자가 `dev.admin.cchaksa.com`을 `d14a6typxgzidb.cloudfront.net`으로 연결하는 service CNAME을 Cloudflare `DNS only`로 등록했다.
+- Cloudflare 권한 DNS, `1.1.1.1`, `8.8.8.8`에서 동일 target을 확인했고 TLS도 정상이다.
+- `GET /api/admin/auth/me`는 CloudFront를 통해 `401 application/json`을 반환해 API 오류가 SPA fallback으로 치환되지 않음을 확인했다.
+- `GET /`는 CloudFront를 통해 `403 AmazonS3`를 반환했다. DNS, TLS와 routing은 정상이며 SPA object가 아직 배포되지 않은 상태다.
+- 마지막 확인 기준 dev와 prod Terraform plan은 모두 `No changes`다. 이번 단계에서는 추가 AWS apply를 수행하지 않았다.
+- 관리자 인프라 구축은 완료됐으며 후속 SPA·서버 배포와 로그인 E2E는 FE/BE 스레드에서 조정한다.
