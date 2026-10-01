@@ -13,7 +13,7 @@
 - SPA fallback은 default S3 behavior의 CloudFront Function에서 extension이 없는 GET/HEAD URI만 `/index.html`로 rewrite한다.
 - global custom error response는 사용하지 않는다. 따라서 API origin의 401, 403, 404, 5xx는 SPA HTML로 치환되지 않는다.
 - Cloudflare DNS는 이 Terraform root에서 관리하지 않는다. ACM 검증 CNAME과 최종 admin CNAME은 수동으로 등록한다.
-- 기존 GitHub Actions static key 인증을 우선 사용하고, Terraform은 기존 IAM principal을 수정하지 않은 채 attach 가능한 최소 배포 policy만 생성한다.
+- 기존 GitHub Actions static key 인증을 우선 사용한다. 환경별 입력이 명시된 경우에만 Terraform이 해당 환경의 최소 배포 policy를 기존 IAM user에 연결한다.
 - 배포 중 기존 index가 참조하는 파일을 잃지 않도록 hash asset은 누적 보존하고 `index.html`을 마지막에 교체한다.
 - 관리자 인증은 dev/prod 모두 로컬 `loginId`/password 방식을 사용한다. 관리자용 외부 OAuth/OIDC provider, redirect URI와 provider key/secret은 인프라·배포 요구사항이 아니다.
 - 일반 사용자 인증은 이 관리자 인프라 root의 범위 밖이며 변경하지 않는다.
@@ -121,3 +121,14 @@ Dev 인증서 및 CloudFront 후속:
 - `GET /`는 CloudFront를 통해 `403 AmazonS3`를 반환했다. DNS, TLS와 routing은 정상이며 SPA object가 아직 배포되지 않은 상태다.
 - 마지막 확인 기준 dev와 prod Terraform plan은 모두 `No changes`다. 이번 단계에서는 추가 AWS apply를 수행하지 않았다.
 - 관리자 인프라 구축은 완료됐으며 후속 SPA·서버 배포와 로그인 E2E는 FE/BE 스레드에서 조정한다.
+
+## 2026-10-02 dev 배포 IAM plan
+
+- 최근 dev Lambda 배포 CloudTrail 이벤트의 principal은 `backend-lambda-github-actions` IAM user다.
+- 이 user에는 Lambda 배포 inline policy와 prod 관리자 웹 배포 managed policy가 연결돼 있지만 dev 관리자 웹 배포 policy는 연결돼 있지 않았다.
+- `deploy_iam_user_name`이 설정된 환경에만 해당 환경의 `admin_web_deploy` policy를 연결하는 조건부 attachment를 추가했다.
+- dev 입력만 `backend-lambda-github-actions`를 지정하며 prod 입력은 unset 상태를 유지한다.
+- dev policy 범위는 dev 관리자 S3 bucket의 list/object read-write-delete와 dev CloudFront distribution invalidation뿐이다. prod bucket/distribution 권한은 이 policy에 포함되지 않는다.
+- dev saved plan은 `1 add / 0 change / 0 destroy`이며 유일한 변경 주소는 `aws_iam_user_policy_attachment.admin_web_deploy[0]`이다.
+- prod preservation plan은 `No changes`다.
+- 이번 단계에서는 saved plan을 적용하지 않았다.

@@ -5,7 +5,7 @@ This Terraform root owns the dev and production admin SPA resources. Each enviro
 ## Ownership Boundary
 
 - State keys: `terraform/admin-web/dev/terraform.tfstate` and `terraform/admin-web/prod/terraform.tfstate`.
-- Managed resources: admin SPA S3 bucket, ACM certificate request, CloudFront OAC/function/distribution, S3 bucket policy, deployment IAM policy.
+- Managed resources: admin SPA S3 bucket, ACM certificate request, CloudFront OAC/function/distribution, S3 bucket policy, deployment IAM policy, and an optional attachment of that policy to an existing IAM user.
 - Referenced only: the existing `api.cchaksa.com` API Gateway custom domain.
 - Not managed: product Lambda/API Gateway, product state, Cloudflare DNS, application authentication data, secret values.
 
@@ -52,7 +52,7 @@ CloudFront has no global custom error response. Its viewer-request function is a
 
 ## Deployment Credentials
 
-The `deploy_policy_arn` output is safe to attach to the existing GitHub Actions AWS principal. Terraform intentionally does not attach it to an existing IAM user. The policy permits only S3 object deployment and, after CloudFront is enabled, invalidation of this distribution.
+Set `deploy_iam_user_name` only for an environment whose existing GitHub Actions IAM user should receive that environment's `deploy_policy_arn`. The dev example attaches only `dev-admin-web-deploy`; the prod example leaves the input unset. The policy permits only S3 object deployment and, after CloudFront is enabled, invalidation of that environment's distribution.
 
 The deployment keeps hashed files under `assets/` so an older cached `index.html` never loses its referenced asset during a rollout. Non-versioned files are synchronized separately and `index.html` is uploaded last with `no-cache` headers.
 

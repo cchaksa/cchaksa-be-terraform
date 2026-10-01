@@ -57,3 +57,15 @@ variable "enable_distribution" {
   type        = bool
   default     = false
 }
+
+variable "deploy_iam_user_name" {
+  description = "Optional existing IAM user that receives this environment's admin web deployment policy."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.deploy_iam_user_name == null || trimspace(var.deploy_iam_user_name) != ""
+    error_message = "deploy_iam_user_name must be null or a non-empty IAM user name."
+  }
+}

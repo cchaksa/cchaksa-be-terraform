@@ -239,3 +239,10 @@ resource "aws_iam_policy" "admin_web_deploy" {
   description = "Least-privilege deployment policy for the admin SPA"
   policy      = data.aws_iam_policy_document.admin_web_deploy.json
 }
+
+resource "aws_iam_user_policy_attachment" "admin_web_deploy" {
+  count = var.deploy_iam_user_name == null ? 0 : 1
+
+  user       = var.deploy_iam_user_name
+  policy_arn = aws_iam_policy.admin_web_deploy.arn
+}
