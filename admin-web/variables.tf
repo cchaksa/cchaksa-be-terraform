@@ -4,8 +4,8 @@ variable "environment" {
   default     = "prod"
 
   validation {
-    condition     = contains(["prod"], var.environment)
-    error_message = "admin-web currently supports only the prod environment."
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "environment must be either dev or prod."
   }
 }
 

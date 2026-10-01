@@ -1,25 +1,36 @@
 # Admin Web Infrastructure
 
-This Terraform root owns only the production admin SPA resources. It deliberately uses a remote state key that is separate from the product backend root.
+This Terraform root owns the dev and production admin SPA resources. Each environment uses a remote state key that is separate from the product backend root and from the other admin environment.
 
 ## Ownership Boundary
 
-- State key: `terraform/admin-web/prod/terraform.tfstate`.
+- State keys: `terraform/admin-web/dev/terraform.tfstate` and `terraform/admin-web/prod/terraform.tfstate`.
 - Managed resources: admin SPA S3 bucket, ACM certificate request, CloudFront OAC/function/distribution, S3 bucket policy, deployment IAM policy.
 - Referenced only: the existing `api.cchaksa.com` API Gateway custom domain.
 - Not managed: product Lambda/API Gateway, product state, Cloudflare DNS, application authentication data, secret values.
 
 Admin authentication uses local `loginId` and password credentials in both dev and prod. External OAuth/OIDC provider registration, redirect URIs, and provider-specific keys or secrets are not infrastructure prerequisites. Consumer authentication is outside this Terraform root's ownership boundary.
 
+## Environment Inputs
+
+Use the matching backend and variable file for each environment:
+
+| Environment | Backend | Variable example |
+| --- | --- | --- |
+| dev | `backend/dev.hcl` | `tfvars/dev.tfvars.example` |
+| prod | `backend/prod.hcl` | `tfvars/prod.tfvars.example` |
+
+Do not reuse or migrate resource addresses between these state keys.
+
 ## Bootstrap Apply
 
-Copy `tfvars/prod.tfvars.example` to an ignored local `tfvars/prod.tfvars`, then keep `enable_distribution = false`.
+Copy the matching example to an ignored local tfvars file, then keep `enable_distribution = false`. The example below uses dev.
 
 ```shell
-terraform init -reconfigure -backend-config=backend/prod.hcl
+terraform init -reconfigure -backend-config=backend/dev.hcl
 terraform fmt -check -recursive
 terraform validate
-terraform plan -var-file=tfvars/prod.tfvars -out=/tmp/admin-web-bootstrap.tfplan
+terraform plan -var-file=tfvars/dev.tfvars -out=/tmp/admin-web-bootstrap.tfplan
 terraform show /tmp/admin-web-bootstrap.tfplan
 terraform apply /tmp/admin-web-bootstrap.tfplan
 ```
@@ -34,7 +45,7 @@ Set `enable_distribution = true`, create a new saved plan, and apply only after 
 
 After apply, create a DNS-only Cloudflare CNAME:
 
-- Name: `admin`.
+- Name: `dev.admin` for dev or `admin` for prod.
 - Target: the `cloudfront_domain_name` output.
 
 CloudFront has no global custom error response. Its viewer-request function is attached only to the default S3 behavior, while `/api/admin/*` uses an ordered behavior with caching disabled and all viewer values except `Host` forwarded to `api.cchaksa.com`.
