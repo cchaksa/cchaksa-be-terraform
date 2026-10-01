@@ -14,7 +14,7 @@ locals {
 
   # Stable IDs published by AWS for managed CloudFront policies.
   caching_optimized_policy_id             = "658327ea-f89d-4fab-a63d-7e88639e58f6"
-  caching_disabled_policy_id              = "413f2c2d-6df8-44a3-9df3-4b5a84be39ad"
+  caching_disabled_policy_id              = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
   all_viewer_except_host_origin_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
   security_headers_response_policy_id     = "67f7725c-6f97-4210-82d7-5512b31e9d03"
 }
