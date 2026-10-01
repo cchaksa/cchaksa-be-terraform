@@ -107,10 +107,6 @@ resource "aws_cloudfront_distribution" "admin_web" {
     domain_name              = aws_s3_bucket.admin_web.bucket_regional_domain_name
     origin_id                = "admin-web-s3"
     origin_access_control_id = aws_cloudfront_origin_access_control.admin_web.id
-
-    s3_origin_config {
-      origin_access_identity = ""
-    }
   }
 
   origin {
