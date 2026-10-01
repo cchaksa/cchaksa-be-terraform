@@ -103,3 +103,14 @@ Prod DNS 후속 검증:
   - Type: `CNAME`.
   - Target: `_17b392618952a2f32fda8ea0dc1ac2b1.wzccmgtwzk.acm-validations.aws`.
 - Cloudflare 세션이 로그인되지 않아 검증 CNAME 등록 전 중단했다. dev CloudFront plan/apply는 인증서 `ISSUED` 전까지 수행하지 않는다.
+
+Dev 인증서 및 CloudFront 후속:
+
+- 사용자가 dev ACM 검증 CNAME을 Cloudflare `DNS only`로 등록했고 public resolver에서 exact target을 확인했다. 검증 레코드는 자동 갱신을 위해 유지한다.
+- ACM을 60초 간격으로 polling해 약 4분 뒤 `ISSUED`를 확인했다.
+- dev CloudFront saved plan은 `2 add / 1 change / 0 destroy`였다. 변경 주소는 dev distribution 생성, dev S3 bucket policy 생성, dev 배포 policy에 distribution invalidation 권한 추가뿐이었다.
+- saved plan 적용 결과는 `2 added / 1 changed / 0 destroyed`였다.
+- dev CloudFront는 `Deployed` 상태이며 `dev.admin.cchaksa.com` alias, private dev S3 origin, `dev.api.cchaksa.com`의 `/api/admin/*` behavior와 dev SPA rewrite Function 연결을 확인했다.
+- dev CloudFront service CNAME target은 `d14a6typxgzidb.cloudfront.net`이다.
+- apply 후 dev와 prod plan 모두 `No changes`였다.
+- Cloudflare 세션이 로그인되지 않아 `dev.admin.cchaksa.com` service CNAME 등록 전 중단했다.
