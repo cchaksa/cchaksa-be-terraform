@@ -66,6 +66,19 @@ variable "create_async_queue" {
   default = false
 }
 
+variable "admin_signin_throttle" {
+  type = object({
+    enabled                = bool
+    throttling_rate_limit  = number
+    throttling_burst_limit = number
+  })
+  default = {
+    enabled                = false
+    throttling_rate_limit  = 1
+    throttling_burst_limit = 5
+  }
+}
+
 variable "maintenance_schedules" {
   type = object({
     enabled                        = bool

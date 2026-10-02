@@ -5,6 +5,12 @@ enable_scraper_async        = true
 enable_scraper_worker_infra = true
 enable_backend_serverless   = true
 
+admin_signin_throttle = {
+  enabled                = true
+  throttling_rate_limit  = 1
+  throttling_burst_limit = 5
+}
+
 scraper_worker = {
   name_prefix = "develop-shadow-scraper"
   image_uri   = "<account_id>.dkr.ecr.ap-northeast-2.amazonaws.com/develop-shadow-scraper-worker:bootstrap"
