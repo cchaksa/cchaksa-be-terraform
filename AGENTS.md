@@ -19,6 +19,7 @@
 - `modules/scraper_worker/`: 스크래핑 워커 실행 모듈(ECS Cluster/TaskDefinition/IAM/Logs)
 - `modules/backend_serverless/`: 백엔드 서버리스 전환 모듈(API Gateway/Lambda/옵션 큐)
 - `modules/database_backup/`: prod Supabase DB backup 전용 S3 버킷 및 GitHub OIDC IAM Role 모듈
+- `admin-web/`: 관리자 SPA 전용 S3/CloudFront/ACM 독립 root (`terraform/admin-web/dev/terraform.tfstate`, `terraform/admin-web/prod/terraform.tfstate`)
 - `scrape_result_storage`: 스크래핑 결과 저장 버킷(S3 + IAM + env 주입, develop-shadow/prod 승인 적용)
 - `backend/backend-develop-shadow.hcl`: develop-shadow 상태 key 분리 설정
 - `tfvars/develop-shadow.tfvars.example`: develop-shadow 적용 전용 변수 예시 파일(실제 `tfvars/develop-shadow.tfvars`는 민감값 포함 가능성이 있어 Git에 올리지 않음)
@@ -76,6 +77,7 @@
 - 스크래핑 전환 시 워커 스펙은 `Fargate 1 vCPU / 2GB`, 접두어는 shadow는 `develop-shadow-*`, prod는 `prod-*`를 기본값으로 사용
 - 결과 저장 버킷은 shadow/prod 병행 리소스로만 생성하고, 운영 트래픽 전환은 별도 승인 후 적용한다
 - 운영 Launch Template은 콘솔 수동 관리 정책을 적용하며 Terraform은 LT 드리프트 감지/적용을 제외한다(`ignore_changes = all`)
+- 관리자 SPA root는 기존 제품 state를 참조하거나 import하지 않으며 saved plan이 add-only일 때만 최초 적용한다
 
 ## 6. Context 문서 규칙
 - 컨텍스트 메타 규칙은 `docs/CONTEXT.md`를 따른다.

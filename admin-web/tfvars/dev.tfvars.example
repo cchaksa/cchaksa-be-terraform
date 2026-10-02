@@ -1,0 +1,13 @@
+environment            = "dev"
+aws_profile            = "default"
+aws_region             = "ap-northeast-2"
+domain_name            = "dev.admin.cchaksa.com"
+api_origin_domain_name = "dev.api.cchaksa.com"
+deploy_iam_user_name   = "backend-lambda-github-actions"
+
+# First apply: false. Set true only after the us-east-1 ACM certificate is ISSUED.
+enable_distribution = false
+
+# Optional alternatives.
+# bucket_name     = "cck-admin-web-dev-<account-id>"
+# certificate_arn = "arn:aws:acm:us-east-1:<account-id>:certificate/<certificate-id>"
