@@ -134,3 +134,4 @@ Dev 인증서 및 CloudFront 후속:
 - 승인 후 같은 구성을 다시 계획해 `1 add / 0 change / 0 destroy`와 prod `No changes`를 재확인했다.
 - 승인된 dev saved plan 적용 결과는 `1 added / 0 changed / 0 destroyed`다.
 - AWS IAM read-back과 Terraform state에서 `backend-lambda-github-actions` user에 `dev-admin-web-deploy` policy가 연결된 것을 확인했다.
+- apply 후 dev 전체 plan은 `No changes`다.
