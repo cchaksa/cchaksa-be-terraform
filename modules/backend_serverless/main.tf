@@ -290,10 +290,28 @@ resource "aws_apigatewayv2_route" "default" {
   target    = "integrations/${aws_apigatewayv2_integration.lambda_proxy.id}"
 }
 
+resource "aws_apigatewayv2_route" "admin_signin" {
+  count = var.admin_signin_throttle.enabled ? 1 : 0
+
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /api/admin/auth/signin"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_proxy.id}"
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
   auto_deploy = true
+
+  dynamic "route_settings" {
+    for_each = var.admin_signin_throttle.enabled ? [var.admin_signin_throttle] : []
+
+    content {
+      route_key              = aws_apigatewayv2_route.admin_signin[0].route_key
+      throttling_rate_limit  = route_settings.value.throttling_rate_limit
+      throttling_burst_limit = route_settings.value.throttling_burst_limit
+    }
+  }
 }
 
 resource "aws_apigatewayv2_domain_name" "custom" {

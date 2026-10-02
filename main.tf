@@ -109,6 +109,7 @@ module "backend_serverless" {
   create_async_queue                = var.backend_serverless.create_async_queue
   maintenance_schedules             = var.backend_serverless.maintenance_schedules
   grafana_cloud                     = var.backend_serverless.grafana_cloud
+  admin_signin_throttle             = var.admin_signin_throttle
 }
 
 module "database_backup" {
@@ -118,7 +119,7 @@ module "database_backup" {
   environment = var.environment
   aws_region  = var.aws_region
 }
-  
+
 resource "aws_s3_bucket" "scrape_results" {
   count = local.scrape_result_enabled ? 1 : 0
 

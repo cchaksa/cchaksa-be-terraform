@@ -169,6 +169,28 @@ variable "enable_backend_serverless" {
   default     = false
 }
 
+variable "admin_signin_throttle" {
+  description = "관리자 로그인 explicit route와 stage-level throttle 설정"
+  type = object({
+    enabled                = bool
+    throttling_rate_limit  = number
+    throttling_burst_limit = number
+  })
+  default = {
+    enabled                = false
+    throttling_rate_limit  = 1
+    throttling_burst_limit = 5
+  }
+
+  validation {
+    condition = (
+      var.admin_signin_throttle.throttling_rate_limit > 0 &&
+      var.admin_signin_throttle.throttling_burst_limit > 0
+    )
+    error_message = "admin_signin_throttle의 rate와 burst는 0보다 커야 한다."
+  }
+}
+
 variable "backend_serverless" {
   description = "백엔드 서버리스 최소 입력(환경별 변경이 필요한 값만 관리)"
   type = object({
