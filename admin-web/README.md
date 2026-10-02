@@ -52,7 +52,7 @@ CloudFront has no global custom error response. Its viewer-request function is a
 
 ## Deployment Credentials
 
-Set `deploy_iam_user_name` only for an environment whose existing GitHub Actions IAM user should receive that environment's `deploy_policy_arn`. The dev example attaches only `dev-admin-web-deploy`; the prod example leaves the input unset. The policy permits only S3 object deployment and, after CloudFront is enabled, invalidation of that environment's distribution.
+Set `deploy_iam_user_name` only for an environment whose existing GitHub Actions IAM user should receive that environment's `deploy_policy_arn`. The dev example attaches only `dev-admin-web-deploy`; the prod example leaves the input unset. The policy permits only S3 object deployment and, after CloudFront is enabled, target configuration read-back and invalidation of that environment's distribution.
 
 The deployment keeps hashed files under `assets/` so an older cached `index.html` never loses its referenced asset during a rollout. Non-versioned files are synchronized separately and `index.html` is uploaded last with `no-cache` headers.
 

@@ -135,3 +135,9 @@ Dev 인증서 및 CloudFront 후속:
 - 승인된 dev saved plan 적용 결과는 `1 added / 0 changed / 0 destroyed`다.
 - AWS IAM read-back과 Terraform state에서 `backend-lambda-github-actions` user에 `dev-admin-web-deploy` policy가 연결된 것을 확인했다.
 - apply 후 dev 전체 plan은 `No changes`다.
+
+## 2026-10-02 dev 배포 readiness 보정
+
+- 관리자 웹 배포 workflow가 업로드 전에 CloudFront alias와 origin을 검증하기 위해 `cloudfront:GetDistributionConfig`를 호출한다.
+- 환경별 배포 policy에 해당 distribution ARN으로 제한한 `cloudfront:GetDistributionConfig`를 추가했다. S3와 다른 distribution에 대한 권한 범위는 확장하지 않았다.
+- PR 본문의 Markdown backtick이 shell command substitution으로 해석되던 link-issue workflow를 환경변수 전달 방식으로 보정하고 `edited`와 `reopened` 이벤트에서도 재검증하도록 했다.

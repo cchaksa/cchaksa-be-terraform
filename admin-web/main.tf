@@ -226,9 +226,13 @@ data "aws_iam_policy_document" "admin_web_deploy" {
     for_each = var.enable_distribution ? [1] : []
 
     content {
-      sid       = "InvalidateAdminWebDistribution"
-      effect    = "Allow"
-      actions   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
+      sid    = "DeployAdminWebDistribution"
+      effect = "Allow"
+      actions = [
+        "cloudfront:CreateInvalidation",
+        "cloudfront:GetDistributionConfig",
+        "cloudfront:GetInvalidation"
+      ]
       resources = [aws_cloudfront_distribution.admin_web[0].arn]
     }
   }
