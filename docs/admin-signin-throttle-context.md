@@ -77,3 +77,12 @@ dev 관리자 인증은 로컬 `loginId`와 password 로그인을 사용한다. 
 
 - 사용자/IP별 로그인 실패 잠금과 WAF rate-based rule은 별도 이슈로 다룬다.
 - execute-api endpoint 비활성화 여부는 다른 직접 호출 의존성을 확인한 뒤 별도로 결정한다.
+
+## prod 적용 준비
+
+- prod 관리자 로그인 공개 전에 `admin_signin_throttle`을 rate `1 RPS`, burst `5`로 활성화한다.
+- prod 전체 입력은 Git에 저장하지 않고 GitHub `prod` Environment의 `PROD_TFVARS` secret으로 주입한다.
+- Plan workflow는 resource address와 action 개수만 Summary에 남기고 destroy/replace가 있으면 실패한다.
+- Apply workflow는 `main` exact SHA, 검토한 add/change 개수, resource-change SHA-256 digest와 destroy/replace 0을 다시 검증한 뒤 재생성한 saved plan만 적용한다.
+- 실제 prod 적용의 허용 변경은 `POST /api/admin/auth/signin` route 1개 추가와 `$default` stage route settings 1개 변경뿐이다.
+- 적용 후 route가 기존 Lambda integration을 사용하고 rate `1`, burst `5`인지 AWS read-back하며 전체 post-apply plan이 `No changes`인지 확인한다.

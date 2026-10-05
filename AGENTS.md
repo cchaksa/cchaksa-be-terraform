@@ -6,6 +6,7 @@
 - 운영 영향 최소화: 병행 구축, 점진 전환, 즉시 롤백 가능 상태 유지
 - shadow 테스트 리소스 접두어는 `develop-shadow`로 고정
 - 운영 반영은 검증 게이트를 통과한 경우에만 수행
+- prod Terraform workflow는 `prod` Environment의 완전한 `PROD_TFVARS` secret을 사용하며, `main` exact SHA, 검토한 add/change 개수와 resource-change digest가 일치하고 destroy/replace가 0인 saved plan만 적용한다
 
 ## 2. 현재/목표 구조
 - 현재 백엔드 구조: `API Gateway + Lambda`

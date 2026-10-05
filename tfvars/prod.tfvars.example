@@ -9,6 +9,12 @@ enable_scraper_async        = true
 enable_scraper_worker_infra = true
 enable_backend_serverless   = true
 
+admin_signin_throttle = {
+  enabled                = true
+  throttling_rate_limit  = 1
+  throttling_burst_limit = 5
+}
+
 scraper_async = {
   ecs_cluster_arn         = "" # enable_scraper_worker_infra=true 일 때 미사용
   ecs_task_definition_arn = "" # enable_scraper_worker_infra=true 일 때 미사용
