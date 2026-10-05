@@ -2,53 +2,120 @@ name: Terraform Plan (prod)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-plan-prod
+  cancel-in-progress: false
 
 jobs:
   terraform-plan:
     runs-on: ubuntu-latest
+    environment: prod
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout exact commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Validate production ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF}" in
+            refs/heads/develop|refs/heads/main)
+              ;;
+            *)
+              echo "Production plan must run from develop or main." >&2
+              exit 1
+              ;;
+          esac
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: 1.11.2
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           aws-access-key-id: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      - name: Setup AWS Profile
+      - name: Setup AWS profile
+        shell: bash
         run: |
-          aws configure set aws_access_key_id ${{ secrets.PROD_AWS_ACCESS_KEY_ID }} --profile prod-cchaksa
-          aws configure set aws_secret_access_key ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }} --profile prod-cchaksa
+          set -euo pipefail
+          aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}" --profile prod-cchaksa
+          aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}" --profile prod-cchaksa
           aws configure set region ap-northeast-2 --profile prod-cchaksa
 
-      - name: Create prod tfvars
-        run: |
-          cat > prod.tfvars << 'EOF'
-          environment    = "prod"
-          enable_develop = true
-          aws_profile    = "prod-cchaksa"
-          aws_region     = "ap-northeast-2"
-          EOF
+      - name: Terraform init
+        run: terraform init -backend-config="backend/backend-prod.hcl" -reconfigure
 
-      - name: Terraform Init
+      - name: Write production input
+        shell: bash
+        env:
+          PROD_TFVARS: ${{ secrets.PROD_TFVARS }}
         run: |
-          terraform init \
-            -backend-config="backend/backend-prod.hcl" \
-            -reconfigure
+          set -euo pipefail
+          if [ -z "${PROD_TFVARS}" ]; then
+            echo "Missing prod Environment secret: PROD_TFVARS." >&2
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "${PROD_TFVARS}" > tfvars/prod.tfvars
 
-      - name: Terraform Plan
+      - name: Create saved plan
+        shell: bash
         run: |
+          set -euo pipefail
+          set +e
           terraform plan \
-            -var-file="prod.tfvars" \
-            -no-color
+            -detailed-exitcode \
+            -var-file="tfvars/prod.tfvars" \
+            -out=/tmp/prod.tfplan \
+            -no-color >/tmp/prod-plan.log 2>&1
+          plan_exit=$?
+          set -e
+
+          if [ "${plan_exit}" -ne 0 ] && [ "${plan_exit}" -ne 2 ]; then
+            echo "Terraform plan failed. Inspect the runner log without publishing tfvars or plan contents." >&2
+            exit 1
+          fi
+
+      - name: Summarize and enforce no-destroy plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform show -json /tmp/prod.tfplan > /tmp/prod-plan.json
+
+          additions=$(jq '[.resource_changes[]? | select(.change.actions == ["create"])] | length' /tmp/prod-plan.json)
+          changes=$(jq '[.resource_changes[]? | select(.change.actions == ["update"])] | length' /tmp/prod-plan.json)
+          destroys=$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' /tmp/prod-plan.json)
+          plan_digest=$(jq -cS '{resource_changes: ([.resource_changes[]?] | sort_by(.address)), output_changes: (.output_changes // {})}' /tmp/prod-plan.json | sha256sum | awk '{print $1}')
+
+          {
+            echo "## Terraform Plan (prod)"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Add: \`${additions}\`"
+            echo "- Change: \`${changes}\`"
+            echo "- Destroy or replace: \`${destroys}\`"
+            echo "- Resource-change digest: \`${plan_digest}\`"
+            echo ""
+            echo "### Changed resource addresses"
+            jq -r '.resource_changes[]? | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | "- `\(.address)`: `\(.change.actions | join(","))`"' /tmp/prod-plan.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${destroys}" -ne 0 ]; then
+            echo "Production plan contains destroy or replacement actions; refusing this workflow." >&2
+            exit 1
+          fi
+
+      - name: Remove sensitive temporary files
+        if: ${{ always() }}
+        run: rm -f tfvars/prod.tfvars /tmp/prod.tfplan /tmp/prod-plan.json /tmp/prod-plan.log
