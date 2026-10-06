@@ -1,4 +1,6 @@
 resource "aws_autoscaling_group" "app" {
+  count = var.enable_app_stack ? 1 : 0
+
   name             = var.app_asg_name
   min_size         = 1
   desired_capacity = 1
@@ -9,12 +11,12 @@ resource "aws_autoscaling_group" "app" {
   ]
 
   launch_template {
-    id      = aws_launch_template.app.id
+    id      = aws_launch_template.app[0].id
     version = "$Latest"
   }
 
   target_group_arns = [
-    aws_lb_target_group.app.arn
+    aws_lb_target_group.app[0].arn
   ]
 
   health_check_type         = "ELB"

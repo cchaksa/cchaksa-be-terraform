@@ -25,6 +25,12 @@ variable "enable_develop" {
   default     = true
 }
 
+variable "enable_legacy_backend_stack" {
+  description = "기존 EC2/ASG/ALB 기반 백엔드 상시 실행 계층 활성화"
+  type        = bool
+  default     = true
+}
+
 variable "app_ami_id" {
   description = "선택값: 지정하면 해당 AMI를 사용, null이면 기본 AMI 검색 결과 사용"
   type        = string
@@ -161,6 +167,28 @@ variable "enable_backend_serverless" {
   description = "백엔드 서버리스 인프라(API Gateway + Lambda) 활성화"
   type        = bool
   default     = false
+}
+
+variable "admin_signin_throttle" {
+  description = "관리자 로그인 explicit route와 stage-level throttle 설정"
+  type = object({
+    enabled                = bool
+    throttling_rate_limit  = number
+    throttling_burst_limit = number
+  })
+  default = {
+    enabled                = false
+    throttling_rate_limit  = 1
+    throttling_burst_limit = 5
+  }
+
+  validation {
+    condition = (
+      var.admin_signin_throttle.throttling_rate_limit > 0 &&
+      var.admin_signin_throttle.throttling_burst_limit > 0
+    )
+    error_message = "admin_signin_throttle의 rate와 burst는 0보다 커야 한다."
+  }
 }
 
 variable "backend_serverless" {

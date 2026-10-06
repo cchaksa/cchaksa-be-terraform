@@ -1,4 +1,6 @@
 resource "aws_security_group" "alb" {
+  count = var.enable_app_stack ? 1 : 0
+
   name        = "${var.environment}-alb-sg"
   description = "ALB security group"
   vpc_id      = aws_vpc.main.id

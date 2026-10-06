@@ -5,6 +5,12 @@ enable_scraper_async        = true
 enable_scraper_worker_infra = true
 enable_backend_serverless   = true
 
+admin_signin_throttle = {
+  enabled                = true
+  throttling_rate_limit  = 1
+  throttling_burst_limit = 5
+}
+
 scraper_worker = {
   name_prefix = "develop-shadow-scraper"
   image_uri   = "<account_id>.dkr.ecr.ap-northeast-2.amazonaws.com/develop-shadow-scraper-worker:bootstrap"
@@ -55,9 +61,10 @@ backend_serverless = {
     DEV_DB_USERNAME                         = "<db-username>"
     DEV_SENTRY_DSN                          = "<sentry-dsn>"
     JWT_ACCESS_EXPIRATION                   = "86400000"
-    JWT_REFRESH_EXPIRATION                  = "1209600000"
+    JWT_REFRESH_EXPIRATION                  = "5184000000"
     JWT_SECRET                              = "<jwt-secret>"
     LOG_PATH                                = "/tmp"
+    MANAGEMENT_HEALTH_DISKSPACE_ENABLED     = "false"
     MANAGEMENT_TRACING_SAMPLING_PROBABILITY = "1.0"
     REDIS_ENCRYPT_KEY                       = "<redis-encrypt-key>"
     SCRAPING_SCHEDULER_ENABLED              = "false"

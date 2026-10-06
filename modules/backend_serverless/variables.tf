@@ -36,6 +36,11 @@ variable "scraping_job_queue_arn" {
   default = ""
 }
 
+variable "scraping_job_queue_access_enabled" {
+  type    = bool
+  default = false
+}
+
 variable "scraping_callback_hmac_secret_arn" {
   type    = string
   default = ""
@@ -59,6 +64,19 @@ variable "provisioned_concurrency" {
 variable "create_async_queue" {
   type    = bool
   default = false
+}
+
+variable "admin_signin_throttle" {
+  type = object({
+    enabled                = bool
+    throttling_rate_limit  = number
+    throttling_burst_limit = number
+  })
+  default = {
+    enabled                = false
+    throttling_rate_limit  = 1
+    throttling_burst_limit = 5
+  }
 }
 
 variable "maintenance_schedules" {

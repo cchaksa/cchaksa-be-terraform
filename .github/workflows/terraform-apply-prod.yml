@@ -6,11 +6,28 @@ on:
       reason:
         description: "왜 apply를 실행하나요?"
         required: true
+      expected_sha:
+        description: "검토한 main commit SHA"
+        required: true
+      expected_additions:
+        description: "검토한 plan의 add 개수"
+        required: true
+        type: number
+      expected_changes:
+        description: "검토한 plan의 change 개수"
+        required: true
+        type: number
+      expected_plan_digest:
+        description: "검토한 plan Summary의 resource-change SHA-256 digest"
+        required: true
       run_instance_refresh:
         description: "apply 이후 ASG 인스턴스 리프레시 실행 여부"
         required: true
         type: boolean
         default: false
+
+permissions:
+  contents: read
 
 jobs:
   terraform-apply:
@@ -19,72 +36,164 @@ jobs:
     concurrency:
       group: terraform-apply-prod
       cancel-in-progress: false
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Apply Summary (start)
+      - name: Validate main and reviewed commit
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: |
-          {
-            echo "## Terraform Apply (prod)"
-            echo ""
-            echo "- Reason: ${{ github.event.inputs.reason }}"
-            echo "- Instance refresh: ${{ github.event.inputs.run_instance_refresh }}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "Production apply must run from main." >&2
+            exit 1
+          fi
+          if [[ ! "${EXPECTED_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Expected SHA must be a full lowercase commit SHA." >&2
+            exit 1
+          fi
+          if [ "${GITHUB_SHA}" != "${EXPECTED_SHA}" ]; then
+            echo "Dispatched SHA does not match the reviewed SHA." >&2
+            exit 1
+          fi
+
+      - name: Checkout exact commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: 1.11.2
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
           aws-access-key-id: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      - name: Setup AWS Profile
+      - name: Setup AWS profile
+        shell: bash
         run: |
-          aws configure set aws_access_key_id ${{ secrets.PROD_AWS_ACCESS_KEY_ID }} --profile prod-cchaksa
-          aws configure set aws_secret_access_key ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }} --profile prod-cchaksa
+          set -euo pipefail
+          aws configure set aws_access_key_id "${AWS_ACCESS_KEY_ID}" --profile prod-cchaksa
+          aws configure set aws_secret_access_key "${AWS_SECRET_ACCESS_KEY}" --profile prod-cchaksa
           aws configure set region ap-northeast-2 --profile prod-cchaksa
 
-      - name: Create prod tfvars
+      - name: Terraform init
+        run: terraform init -backend-config="backend/backend-prod.hcl" -reconfigure
+
+      - name: Write production input
+        shell: bash
+        env:
+          PROD_TFVARS: ${{ secrets.PROD_TFVARS }}
         run: |
-          cat > prod.tfvars << EOFVARS
-          environment    = "prod"
-          aws_profile    = "prod-cchaksa"
-          aws_region     = "ap-northeast-2"
-          EOFVARS
+          set -euo pipefail
+          if [ -z "${PROD_TFVARS}" ]; then
+            echo "Missing prod Environment secret: PROD_TFVARS." >&2
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "${PROD_TFVARS}" > tfvars/prod.tfvars
 
-      - name: Terraform Init
+      - name: Prepare current Lambda package input
+        run: bash scripts/prepare_prod_lambda_package.sh
+
+      - name: Recreate and validate reviewed plan
+        shell: bash
+        env:
+          REASON: ${{ inputs.reason }}
+          EXPECTED_ADDITIONS: ${{ inputs.expected_additions }}
+          EXPECTED_CHANGES: ${{ inputs.expected_changes }}
+          EXPECTED_PLAN_DIGEST: ${{ inputs.expected_plan_digest }}
         run: |
-          terraform init \
-            -backend-config="backend/backend-prod.hcl" \
-            -reconfigure
+          set -euo pipefail
+          if [[ ! "${EXPECTED_PLAN_DIGEST}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Expected plan digest must be a lowercase SHA-256 value." >&2
+            exit 1
+          fi
+          terraform plan \
+            -var-file="tfvars/prod.tfvars" \
+            -out=/tmp/prod.tfplan \
+            -no-color >/tmp/prod-plan.log 2>&1
+          terraform show -json /tmp/prod.tfplan > /tmp/prod-plan.json
 
-      - name: Terraform Plan
-        run: terraform plan -var-file="prod.tfvars" -no-color
+          additions=$(jq '[.resource_changes[]? | select(.change.actions == ["create"])] | length' /tmp/prod-plan.json)
+          changes=$(jq '[.resource_changes[]? | select(.change.actions == ["update"])] | length' /tmp/prod-plan.json)
+          destroys=$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' /tmp/prod-plan.json)
+          plan_digest=$(jq -cS '{resource_changes: ([.resource_changes[]?] | sort_by(.address)), output_changes: (.output_changes // {})}' /tmp/prod-plan.json | sha256sum | awk '{print $1}')
 
-      - name: Terraform Apply
+          {
+            echo "## Terraform Apply (prod)"
+            printf '%s\n' "- Reason: ${REASON}"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Add: \`${additions}\`"
+            echo "- Change: \`${changes}\`"
+            echo "- Destroy or replace: \`${destroys}\`"
+            echo "- Resource-change digest: \`${plan_digest}\`"
+            echo ""
+            echo "### Changed resource addresses"
+            jq -r '.resource_changes[]? | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | "- `\(.address)`: `\(.change.actions | join(","))`"' /tmp/prod-plan.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${destroys}" -ne 0 ]; then
+            echo "Production plan contains destroy or replacement actions; refusing apply." >&2
+            exit 1
+          fi
+          if [ "${additions}" -ne "${EXPECTED_ADDITIONS}" ] || [ "${changes}" -ne "${EXPECTED_CHANGES}" ]; then
+            echo "Plan counts differ from the reviewed plan; refusing apply." >&2
+            exit 1
+          fi
+          if [ "${plan_digest}" != "${EXPECTED_PLAN_DIGEST}" ]; then
+            echo "Resource changes differ from the reviewed plan; refusing apply." >&2
+            exit 1
+          fi
+
+      - name: Apply exact saved plan
+        shell: bash
         run: |
-          terraform apply \
-            -auto-approve \
-            -var-file="prod.tfvars"
+          set -euo pipefail
+          terraform apply -auto-approve /tmp/prod.tfplan >/tmp/prod-apply.log 2>&1
 
-      - name: Start ASG Instance Refresh
-        if: github.event.inputs.run_instance_refresh == 'true'
+      - name: Verify no post-apply drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          terraform plan \
+            -detailed-exitcode \
+            -var-file="tfvars/prod.tfvars" \
+            -no-color >/tmp/prod-post-apply.log 2>&1
+          plan_exit=$?
+          set -e
+
+          if [ "${plan_exit}" -ne 0 ]; then
+            echo "Post-apply plan is not clean." >&2
+            exit 1
+          fi
+
+      - name: Start ASG instance refresh
+        if: ${{ inputs.run_instance_refresh }}
         run: |
           aws autoscaling start-instance-refresh \
             --auto-scaling-group-name prod-app-asg \
             --preferences '{"MinHealthyPercentage":90,"InstanceWarmup":180}'
 
-      - name: Apply Summary (done)
+      - name: Apply summary
         run: |
           {
             echo ""
             echo "### Done"
-            echo "- ASG: prod-app-asg"
+            echo "- Post-apply plan: \`No changes\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove sensitive temporary files
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -f /tmp/prod-lambda-package-path ]; then
+            package_path="$(cat /tmp/prod-lambda-package-path)"
+            rm -f "${package_path}"
+          fi
+          rm -f tfvars/prod.tfvars /tmp/prod-lambda-package-path /tmp/prod.tfplan /tmp/prod-plan.json /tmp/prod-plan.log /tmp/prod-apply.log /tmp/prod-post-apply.log
