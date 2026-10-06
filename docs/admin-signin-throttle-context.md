@@ -85,4 +85,5 @@ dev 관리자 인증은 로컬 `loginId`와 password 로그인을 사용한다. 
 - Plan workflow는 resource address와 action 개수만 Summary에 남기고 destroy/replace가 있으면 실패한다.
 - Apply workflow는 `main` exact SHA, 검토한 add/change 개수, resource-change SHA-256 digest와 destroy/replace 0을 다시 검증한 뒤 재생성한 saved plan만 적용한다.
 - 실제 prod 적용의 허용 변경은 `POST /api/admin/auth/signin` route 1개 추가와 `$default` stage route settings 1개 변경뿐이다.
+- Plan과 Apply는 remote state가 가리키는 기존 Lambda artifact를 임시로 내려받아 모듈의 package hash 입력만 충족하며, Lambda 코드 필드는 기존 `ignore_changes` 경계를 유지한다.
 - 적용 후 route가 기존 Lambda integration을 사용하고 rate `1`, burst `5`인지 AWS read-back하며 전체 post-apply plan이 `No changes`인지 확인한다.

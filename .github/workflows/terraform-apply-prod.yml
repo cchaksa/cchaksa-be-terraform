@@ -97,6 +97,9 @@ jobs:
           umask 077
           printf '%s\n' "${PROD_TFVARS}" > tfvars/prod.tfvars
 
+      - name: Prepare current Lambda package input
+        run: bash scripts/prepare_prod_lambda_package.sh
+
       - name: Recreate and validate reviewed plan
         shell: bash
         env:
@@ -187,4 +190,10 @@ jobs:
 
       - name: Remove sensitive temporary files
         if: ${{ always() }}
-        run: rm -f tfvars/prod.tfvars /tmp/prod.tfplan /tmp/prod-plan.json /tmp/prod-plan.log /tmp/prod-apply.log /tmp/prod-post-apply.log
+        shell: bash
+        run: |
+          if [ -f /tmp/prod-lambda-package-path ]; then
+            package_path="$(cat /tmp/prod-lambda-package-path)"
+            rm -f "${package_path}"
+          fi
+          rm -f tfvars/prod.tfvars /tmp/prod-lambda-package-path /tmp/prod.tfplan /tmp/prod-plan.json /tmp/prod-plan.log /tmp/prod-apply.log /tmp/prod-post-apply.log
